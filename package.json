@@ -16,6 +16,7 @@
     "db:studio": "turbo -F server db:studio",
     "db:generate": "turbo -F server db:generate",
     "db:migrate": "turbo -F server db:migrate",
+    "db:migrate-create": "turbo -F server db:migrate-create",
     "db:start": "turbo -F server db:start",
     "db:watch": "turbo -F server db:watch",
     "db:stop": "turbo -F server db:stop",
