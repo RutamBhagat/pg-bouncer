@@ -19,5 +19,61 @@ services:
       retries: 5
     restart: unless-stopped
 
+  pgbouncer-primary:
+    image: bitnami/pgbouncer:1
+    container_name: pgbouncer-primary
+    ports:
+      - "6432:6432"
+    environment:
+      - POSTGRESQL_HOST=postgres
+      - POSTGRESQL_PORT=5432
+      - POSTGRESQL_USERNAME=postgres
+      - POSTGRESQL_PASSWORD=password
+      - POSTGRESQL_DATABASE=pg-bouncer
+      - PGBOUNCER_AUTH_TYPE=trust
+      - PGBOUNCER_POOL_MODE=transaction
+      - PGBOUNCER_DEFAULT_POOL_SIZE=50
+      - PGBOUNCER_MAX_CLIENT_CONN=100
+    volumes:
+      - ./docker/pgbouncer-primary/pgbouncer.ini:/bitnami/pgbouncer/conf/pgbouncer.ini
+      - ./docker/pgbouncer-primary/userlist.txt:/bitnami/pgbouncer/conf/userlist.txt
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  pgbouncer-secondary:
+    image: bitnami/pgbouncer:1
+    container_name: pgbouncer-secondary
+    ports:
+      - "6433:6432"
+    environment:
+      - POSTGRESQL_HOST=postgres
+      - POSTGRESQL_PORT=5432
+      - POSTGRESQL_USERNAME=postgres
+      - POSTGRESQL_PASSWORD=password
+      - POSTGRESQL_DATABASE=pg-bouncer
+      - PGBOUNCER_AUTH_TYPE=trust
+      - PGBOUNCER_POOL_MODE=transaction
+      - PGBOUNCER_DEFAULT_POOL_SIZE=50
+      - PGBOUNCER_MAX_CLIENT_CONN=100
+    volumes:
+      - ./docker/pgbouncer-secondary/pgbouncer.ini:/bitnami/pgbouncer/conf/pgbouncer.ini
+      - ./docker/pgbouncer-secondary/userlist.txt:/bitnami/pgbouncer/conf/userlist.txt
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
 volumes:
   pg-bouncer_postgres_data:
