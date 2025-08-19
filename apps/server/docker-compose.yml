@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: pg-bouncer
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
     ports:
       - "5432:5432"
     volumes:
@@ -28,7 +28,7 @@ services:
       - POSTGRESQL_HOST=postgres
       - POSTGRESQL_PORT=5432
       - POSTGRESQL_USERNAME=postgres
-      - POSTGRESQL_PASSWORD=password
+      - POSTGRESQL_PASSWORD=${POSTGRES_PASSWORD:-password}
       - POSTGRESQL_DATABASE=pg-bouncer
       - PGBOUNCER_AUTH_TYPE=trust
       - PGBOUNCER_POOL_MODE=transaction
@@ -58,7 +58,7 @@ services:
       - POSTGRESQL_HOST=postgres
       - POSTGRESQL_PORT=5432
       - POSTGRESQL_USERNAME=postgres
-      - POSTGRESQL_PASSWORD=password
+      - POSTGRESQL_PASSWORD=${POSTGRES_PASSWORD:-password}
       - POSTGRESQL_DATABASE=pg-bouncer
       - PGBOUNCER_AUTH_TYPE=trust
       - PGBOUNCER_POOL_MODE=transaction
