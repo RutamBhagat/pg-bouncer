@@ -34,6 +34,7 @@
   "devDependencies": {
     "@types/node": "^22.13.11",
     "prisma": "^6.13.0",
+    "prisma-kysely": "^1.8.0",
     "tsdown": "^0.12.9",
     "tsx": "^4.19.2",
     "typescript": "^5.8.2"
