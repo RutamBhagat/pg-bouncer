@@ -28,3 +28,9 @@ scrape_configs:
       - targets: ['pgbouncer-exporter-tertiary:9127']
     scrape_interval: 5s
     metrics_path: /metrics
+
+  - job_name: 'pgbouncer-failover-app'
+    static_configs:
+      - targets: ['host.docker.internal:3000']
+    scrape_interval: 10s
+    metrics_path: /monitoring/metrics
