@@ -1,23 +1,16 @@
+import type { DB } from "@/db/types.js";
 import { FailoverPostgresDialect } from "@/db/dialect/FailoverPostgresDialect.js";
 import { Kysely } from "kysely";
 import { databaseConfig } from "@/db/config/database.config.js";
 
-// Your database schema types would go here
-interface Database {
-  // Add your table types here as you create them
-  // Example:
-  // users: UsersTable;
-  // posts: PostsTable;
-}
-
 class DatabaseClient {
-  private static instance: Kysely<Database> | null = null;
+  private static instance: Kysely<DB> | null = null;
 
-  static getInstance(): Kysely<Database> {
+  static getInstance(): Kysely<DB> {
     if (!DatabaseClient.instance) {
       console.log("Initializing database client with failover support...");
 
-      DatabaseClient.instance = new Kysely<Database>({
+      DatabaseClient.instance = new Kysely<DB>({
         dialect: new FailoverPostgresDialect(databaseConfig),
       });
 
