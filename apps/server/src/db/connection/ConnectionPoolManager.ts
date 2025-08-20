@@ -1,12 +1,16 @@
 import type { DatabaseConfig, HostHealth } from "@/db/config/types.js";
 
 import { HostStatus } from "@/db/config/types.js";
-import { PgBouncerHost } from "@/db/connection/PgBouncerHost";
+import { PgBouncerHost } from "@/db/connection/PgBouncerHost.js";
 import type { PoolClient } from "pg";
 import pRetry from "p-retry";
 
+type ConnectionStrategy = "FAILOVER" | "LOAD_BALANCE";
+
 export class ConnectionPoolManager {
   private hosts: PgBouncerHost[];
+  private strategy: ConnectionStrategy = "FAILOVER";
+  private lastSuccessfulHostId: string | null = null;
 
   constructor(private readonly config: DatabaseConfig) {
     this.hosts = config.hosts
@@ -15,32 +19,49 @@ export class ConnectionPoolManager {
   }
 
   async getConnection(): Promise<PoolClient> {
-    const healthyHosts = this.getHealthyHosts();
+    const availableHosts = this.getAvailableHosts();
 
-    if (healthyHosts.length === 0) {
+    if (availableHosts.length === 0) {
       throw new Error("All PgBouncer instances are unavailable");
     }
 
     return pRetry(
       async (attempt) => {
-        const host = healthyHosts[(attempt - 1) % healthyHosts.length];
+        const host =
+          this.strategy === "FAILOVER"
+            ? this.selectHostForFailover(availableHosts, attempt)
+            : this.selectHostForLoadBalance(availableHosts, attempt);
+
+        console.log(
+          `Attempting connection to ${host.getId()} (attempt ${attempt}, strategy: ${
+            this.strategy
+          })`
+        );
+
         const connection = await host.getConnection();
 
         if (!connection) {
           throw new Error(`Failed to connect to ${host.getId()}`);
         }
 
-        if (host.getPriority() !== 1) {
+        if (
+          this.lastSuccessfulHostId !== null &&
+          this.lastSuccessfulHostId !== host.getId()
+        ) {
           console.error(
-            `SLACK: [FAILOVER] Using ${host.getId()} (priority ${host.getPriority()}) at ${new Date().toISOString()}`
+            `SLACK: [FAILOVER] Switched from ${
+              this.lastSuccessfulHostId
+            } to ${host.getId()} (priority ${host.getPriority()}) at ${new Date().toISOString()}`
           );
         }
+
+        this.lastSuccessfulHostId = host.getId();
 
         return connection;
       },
       {
         retries: this.config.failover.maxRetryAttempts,
-        factor: 2, // Exponential backoff: 1s, 2s, 4s
+        factor: 2,
         minTimeout: 1000,
         maxTimeout: 8000,
         onFailedAttempt: (error) => {
@@ -52,7 +73,24 @@ export class ConnectionPoolManager {
     );
   }
 
-  private getHealthyHosts(): PgBouncerHost[] {
+  // FAILOVER: (1 → 2 → 3)
+  private selectHostForFailover(
+    availableHosts: PgBouncerHost[],
+    attempt: number
+  ): PgBouncerHost {
+    return availableHosts[0]; // Always try highest priority available
+  }
+
+  // LOAD_BALANCE: Cycle through hosts
+  private selectHostForLoadBalance(
+    availableHosts: PgBouncerHost[],
+    attempt: number
+  ): PgBouncerHost {
+    const index = (attempt - 1) % availableHosts.length;
+    return availableHosts[index];
+  }
+
+  private getAvailableHosts(): PgBouncerHost[] {
     return this.hosts.filter((host) => {
       const health = host.getHealth();
       return (
@@ -60,6 +98,11 @@ export class ConnectionPoolManager {
         health.status === HostStatus.DEGRADED
       );
     });
+  }
+
+  setStrategy(strategy: ConnectionStrategy): void {
+    this.strategy = strategy;
+    console.log(`Connection strategy changed to: ${strategy}`);
   }
 
   getAllHostsHealth(): HostHealth[] {
