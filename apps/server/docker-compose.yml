@@ -40,7 +40,8 @@ services:
       - ./docker/pgbouncer-primary/pgbouncer.ini:/bitnami/pgbouncer/conf/pgbouncer.ini
       - ./docker/pgbouncer-primary/userlist.txt:/bitnami/pgbouncer/conf/userlist.txt
       - ./logs/pgbouncer-primary:/var/log/pgbouncer
-      - ./run/pgbouncer-primary:/var/run/pgbouncer
+    tmpfs:
+      - /var/run/pgbouncer
     depends_on:
       postgres:
         condition: service_healthy
@@ -70,7 +71,8 @@ services:
       - ./docker/pgbouncer-secondary/pgbouncer.ini:/bitnami/pgbouncer/conf/pgbouncer.ini
       - ./docker/pgbouncer-secondary/userlist.txt:/bitnami/pgbouncer/conf/userlist.txt
       - ./logs/pgbouncer-secondary:/var/log/pgbouncer
-      - ./run/pgbouncer-secondary:/var/run/pgbouncer
+    tmpfs:
+      - /var/run/pgbouncer
     depends_on:
       postgres:
         condition: service_healthy
@@ -100,7 +102,8 @@ services:
       - ./docker/pgbouncer-tertiary/pgbouncer.ini:/bitnami/pgbouncer/conf/pgbouncer.ini
       - ./docker/pgbouncer-tertiary/userlist.txt:/bitnami/pgbouncer/conf/userlist.txt
       - ./logs/pgbouncer-tertiary:/var/log/pgbouncer
-      - ./run/pgbouncer-tertiary:/var/run/pgbouncer
+    tmpfs:
+      - /var/run/pgbouncer
     depends_on:
       postgres:
         condition: service_healthy

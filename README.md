@@ -1,65 +1,78 @@
-# pg-bouncer
+# PG-Bouncer
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines Next.js, Hono, and more.
+## Project Overview
 
-## Features
+This is a PgBouncer connection pooling demonstration project built with the Better-T-Stack (TypeScript, Next.js, Hono, Prisma). It features a monorepo setup with Turborepo managing a Next.js frontend and Hono API backend, integrated with PostgreSQL through multiple PgBouncer instances.
 
-- **TypeScript** - For type safety and improved developer experience
-- **Next.js** - Full-stack React framework
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **shadcn/ui** - Reusable UI components
-- **Hono** - Lightweight, performant server framework
-- **Node.js** - Runtime environment
-- **Prisma** - TypeScript-first ORM
-- **PostgreSQL** - Database engine
-- **Turborepo** - Optimized monorepo build system
+## Architecture
 
-## Getting Started
+- **Monorepo Structure**: Uses Turborepo with pnpm workspaces
+- **Frontend** (`apps/web/`): Next.js 15.3 with React 19, TailwindCSS, shadcn/ui
+- **Backend** (`apps/server/`): Hono server with Prisma ORM and PostgreSQL
+- **Database Setup**: PostgreSQL with 3 PgBouncer instances (primary, secondary, tertiary) for connection pooling
+- **Containerization**: Docker Compose setup with health checks and volume persistence
 
-First, install the dependencies:
+## Essential Commands
 
+### Development
 ```bash
-pnpm install
+pnpm dev                # Start all services (web + server)
+pnpm dev:web            # Start only Next.js frontend (port 3001)
+pnpm dev:server         # Start only Hono API server (port 3000)
 ```
-## Database Setup
 
-This project uses PostgreSQL with Prisma.
-
-1. Make sure you have a PostgreSQL database set up.
-2. Update your `apps/server/.env` file with your PostgreSQL connection details.
-
-3. Generate the Prisma client and push the schema:
+### Database Operations
 ```bash
-pnpm db:push
+pnpm db:start           # Start PostgreSQL + PgBouncer containers
+pnpm db:watch           # Start containers with logs visible
+pnpm db:stop            # Stop containers
+pnpm db:down            # Stop and remove containers
+pnpm db:push            # Push Prisma schema to database
+pnpm db:generate        # Generate Prisma client
+pnpm db:studio          # Open Prisma Studio
+pnpm db:migrate         # Run Prisma migrations
 ```
 
-
-Then, run the development server:
-
+### Build & Type Checking
 ```bash
-pnpm dev
+pnpm build              # Build all apps
+pnpm check-types        # TypeScript type checking across all apps
 ```
 
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
-The API is running at [http://localhost:3000](http://localhost:3000).
+## Database Architecture
 
+The project uses a sophisticated PostgreSQL + PgBouncer setup:
 
+- **PostgreSQL**: Main database on port 5432
+- **PgBouncer Primary**: Port 6432 (transaction mode, 200 pool size, 400 max connections)
+- **PgBouncer Secondary**: Port 6433 (same config as primary)
+- **PgBouncer Tertiary**: Port 6434 (same config as primary)
 
-## Project Structure
+All PgBouncer instances are configured with:
+- Transaction-level pooling
+- Health checks and auto-restart
+- Persistent logging and PID file volumes
+- 15-minute server lifetime, 10-minute idle timeout
 
-```
-pg-bouncer/
-├── apps/
-│   ├── web/         # Frontend application (Next.js)
-│   └── server/      # Backend API (Hono)
-```
+## Key File Locations
 
-## Available Scripts
+- **Server entry**: `apps/server/src/index.ts`
+- **Prisma schema**: `apps/server/prisma/schema/schema.prisma`
+- **Docker config**: `apps/server/docker-compose.yml`
+- **PgBouncer configs**: `apps/server/docker/pgbouncer-*/pgbouncer.ini`
+- **Frontend pages**: `apps/web/src/app/`
+- **UI components**: `apps/web/src/components/`
 
-- `pnpm dev`: Start all applications in development mode
-- `pnpm build`: Build all applications
-- `pnpm dev:web`: Start only the web application
-- `pnpm dev:server`: Start only the server
-- `pnpm check-types`: Check TypeScript types across all apps
-- `pnpm db:push`: Push schema changes to database
-- `pnpm db:studio`: Open database studio UI
+## Development Notes
+
+- The server uses tsx for hot-reload development and tsdown for building
+- Prisma client is generated to `apps/server/prisma/generated/`
+- Frontend uses Next.js with Turbopack for development
+- CORS is configured for cross-origin requests between frontend and API
+- Environment variables should be set in `apps/server/.env`
+
+## PgBouncer Management
+
+PgBouncer logs are persisted to `apps/server/logs/pgbouncer-*/` and PID files to `apps/server/run/pgbouncer-*/`. Each instance has identical configuration but runs on different ports for load distribution testing.
+
+Always use `pnpm db:start` before development to ensure the database infrastructure is running.
