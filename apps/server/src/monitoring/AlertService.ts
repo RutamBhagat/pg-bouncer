@@ -94,7 +94,11 @@ This indicates that the primary database connection failed and the system automa
   ): Promise<void> {
     switch (channel.name) {
       case "slack":
-        await this.sendToSlack(channel.webhook!, message);
+        if (!channel.webhook) {
+          failoverLogger.error({ channelName: channel.name }, "Slack webhook URL not configured");
+          return;
+        }
+        await this.sendToSlack(channel.webhook, message);
         break;
       default:
         failoverLogger.warn(
