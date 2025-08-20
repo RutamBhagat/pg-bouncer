@@ -33,7 +33,6 @@ node_modules/
 
 # logs
 logs/
-run/
 *.log
 npm-debug.log*
 yarn-debug.log*
