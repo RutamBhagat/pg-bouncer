@@ -156,12 +156,7 @@ services:
   pgbouncer-exporter-primary:
     image: prometheuscommunity/pgbouncer-exporter:v0.7.0
     container_name: pgbouncer-exporter-primary
-    environment:
-      PGBOUNCER_EXPORTER_HOST: pgbouncer-primary
-      PGBOUNCER_EXPORTER_PORT: 6432
-      PGBOUNCER_EXPORTER_DATABASE: pgbouncer
-      PGBOUNCER_EXPORTER_USER: postgres
-      PGBOUNCER_EXPORTER_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    command: ["--pgBouncer.connectionString=postgres://postgres:${POSTGRES_PASSWORD:-password}@pgbouncer-primary:6432/pgbouncer?sslmode=disable"]
     ports:
       - "9127:9127"
     depends_on:
@@ -172,12 +167,7 @@ services:
   pgbouncer-exporter-secondary:
     image: prometheuscommunity/pgbouncer-exporter:v0.7.0
     container_name: pgbouncer-exporter-secondary
-    environment:
-      PGBOUNCER_EXPORTER_HOST: pgbouncer-secondary
-      PGBOUNCER_EXPORTER_PORT: 6432
-      PGBOUNCER_EXPORTER_DATABASE: pgbouncer
-      PGBOUNCER_EXPORTER_USER: postgres
-      PGBOUNCER_EXPORTER_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    command: ["--pgBouncer.connectionString=postgres://postgres:${POSTGRES_PASSWORD:-password}@pgbouncer-secondary:6432/pgbouncer?sslmode=disable"]
     ports:
       - "9128:9127"
     depends_on:
@@ -188,12 +178,7 @@ services:
   pgbouncer-exporter-tertiary:
     image: prometheuscommunity/pgbouncer-exporter:v0.7.0
     container_name: pgbouncer-exporter-tertiary
-    environment:
-      PGBOUNCER_EXPORTER_HOST: pgbouncer-tertiary
-      PGBOUNCER_EXPORTER_PORT: 6432
-      PGBOUNCER_EXPORTER_DATABASE: pgbouncer
-      PGBOUNCER_EXPORTER_USER: postgres
-      PGBOUNCER_EXPORTER_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    command: ["--pgBouncer.connectionString=postgres://postgres:${POSTGRES_PASSWORD:-password}@pgbouncer-tertiary:6432/pgbouncer?sslmode=disable"]
     ports:
       - "9129:9127"
     depends_on:
