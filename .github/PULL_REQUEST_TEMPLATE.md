@@ -13,7 +13,7 @@ Provide a concise explanation of what this pull request changes or improves.
 ## Related Issue
 Link the issue(s) this PR addresses, e.g. "Fixes #123"
 
-## Motivation and Context
+## Context
 Explain why this change is needed and what problem it solves.
 
 ## How Has This Been Tested?
