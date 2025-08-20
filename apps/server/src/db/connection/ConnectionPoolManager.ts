@@ -4,6 +4,8 @@ import { HostStatus } from "@/db/config/types.js";
 import { PgBouncerHost } from "@/db/connection/PgBouncerHost.js";
 import type { PoolClient } from "pg";
 import pRetry from "p-retry";
+import { dbLogger, failoverLogger } from "@/logger.js";
+import { AlertService, type FailoverEvent } from "@/monitoring/AlertService.js";
 
 type ConnectionStrategy = "FAILOVER" | "LOAD_BALANCE";
 
@@ -11,11 +13,13 @@ export class ConnectionPoolManager {
   private hosts: PgBouncerHost[];
   private strategy: ConnectionStrategy = "FAILOVER";
   private lastSuccessfulHostId: string | null = null;
+  private alertService: AlertService;
 
   constructor(private readonly config: DatabaseConfig) {
     this.hosts = config.hosts
       .map((hostConfig) => new PgBouncerHost(hostConfig))
       .sort((a, b) => a.getPriority() - b.getPriority());
+    this.alertService = new AlertService();
   }
 
   async getConnection(): Promise<PoolClient> {
@@ -32,11 +36,12 @@ export class ConnectionPoolManager {
             ? this.selectHostForFailover(availableHosts, attempt)
             : this.selectHostForLoadBalance(availableHosts, attempt);
 
-        console.log(
-          `Attempting connection to ${host.getId()} (attempt ${attempt}, strategy: ${
-            this.strategy
-          })`
-        );
+        dbLogger.debug({
+          hostId: host.getId(),
+          attempt,
+          strategy: this.strategy,
+          priority: host.getPriority()
+        }, 'Attempting database connection');
 
         const connection = await host.getConnection();
 
@@ -48,13 +53,25 @@ export class ConnectionPoolManager {
           this.lastSuccessfulHostId !== null &&
           this.lastSuccessfulHostId !== host.getId()
         ) {
-          console.error(
-            `SLACK: [FAILOVER] Switched from ${
-              this.lastSuccessfulHostId
-            } to ${host.getId()} (priority ${host.getPriority()}) at ${new Date().toISOString()}`
-          );
+          const failoverEvent: FailoverEvent = {
+            fromHost: this.lastSuccessfulHostId,
+            toHost: host.getId(),
+            toHostPriority: host.getPriority(),
+            timestamp: new Date().toISOString(),
+            event: 'failover_detected'
+          };
+
+          failoverLogger.warn(failoverEvent, 'FAILOVER: Database host switched - this could indicate an issue');
+          
+          this.alertService.sendFailoverAlert(failoverEvent).catch(error => {
+            failoverLogger.error({ error: error.message }, 'Failed to send failover alert');
+          });
         } else if (this.lastSuccessfulHostId === null) {
-          console.log(`Initial connection established to ${host.getId()}`);
+          dbLogger.info({
+            hostId: host.getId(),
+            priority: host.getPriority(),
+            event: 'initial_connection'
+          }, 'Initial database connection established');
         }
 
         this.lastSuccessfulHostId = host.getId();
@@ -67,9 +84,11 @@ export class ConnectionPoolManager {
         minTimeout: 1000,
         maxTimeout: 8000,
         onFailedAttempt: (error) => {
-          console.warn(
-            `Connection attempt ${error.attemptNumber} failed: ${error.message}`
-          );
+          dbLogger.warn({
+            attemptNumber: error.attemptNumber,
+            error: error.message,
+            retriesLeft: error.retriesLeft
+          }, 'Database connection attempt failed');
         },
       }
     );
@@ -104,7 +123,7 @@ export class ConnectionPoolManager {
 
   setStrategy(strategy: ConnectionStrategy): void {
     this.strategy = strategy;
-    console.log(`Connection strategy changed to: ${strategy}`);
+    dbLogger.info({ strategy }, 'Connection strategy changed');
   }
 
   getAllHostsHealth(): HostHealth[] {
@@ -113,7 +132,7 @@ export class ConnectionPoolManager {
 
   resetConnectionState(): void {
     this.lastSuccessfulHostId = null;
-    console.log("Connection state reset");
+    dbLogger.info('Connection state reset');
   }
 
   getCurrentHost(): string | null {

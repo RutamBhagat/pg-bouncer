@@ -1,5 +1,6 @@
 import type { PgBouncerConfig } from "@/db/config/types.js";
 import { Pool } from "pg";
+import { healthLogger } from "@/logger.js";
 
 export async function checkDatabaseHealth(
   config: PgBouncerConfig
@@ -19,9 +20,16 @@ export async function checkDatabaseHealth(
     await client.query("SELECT 1");
     client.release();
     await pool.end();
+    healthLogger.debug({ host: config.host, port: config.port, id: config.id }, 'Health check passed');
     return true;
   } catch (error) {
     await pool.end();
+    healthLogger.warn({ 
+      host: config.host, 
+      port: config.port, 
+      id: config.id, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, 'Health check failed');
     return false;
   }
 }
@@ -29,7 +37,7 @@ export async function checkDatabaseHealth(
 export async function warmupConnections(
   configs: readonly PgBouncerConfig[]
 ): Promise<void> {
-  console.log("Warming up database connections...");
+  healthLogger.info({ hostCount: configs.length }, "Starting database connection warmup");
 
   const results = await Promise.all(
     configs.map(async (config) => ({
@@ -39,17 +47,22 @@ export async function warmupConnections(
   );
 
   results.forEach(({ id, healthy }) => {
-    console.log(
-      `${healthy ? "✅" : "❌"} ${id} ${healthy ? "healthy" : "failed"}`
-    );
+    healthLogger.info({ 
+      instanceId: id, 
+      healthy,
+      status: healthy ? "healthy" : "failed"
+    }, `Instance ${id} warmup ${healthy ? "succeeded" : "failed"}`);
   });
 
   const healthyCount = results.filter((r) => r.healthy).length;
   if (healthyCount === 0) {
+    healthLogger.error({ totalHosts: results.length }, "No healthy PgBouncer instances found during warmup");
     throw new Error("No healthy PgBouncer instances found during warmup");
   }
 
-  console.log(
-    `Database warmup complete: ${healthyCount}/${results.length} hosts healthy`
-  );
+  healthLogger.info({ 
+    healthyCount, 
+    totalCount: results.length,
+    healthyHosts: results.filter(r => r.healthy).map(r => r.id)
+  }, "Database warmup completed successfully");
 }
