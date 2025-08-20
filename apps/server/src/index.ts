@@ -5,6 +5,7 @@ import { createLogger, logger } from "@/logger.js";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { databaseConfig } from "@/db/config/database.config.js";
+import { monitoring } from "@/routers/monitoring.js";
 import { serve } from "@hono/node-server";
 import { warmupConnections } from "@/db/health/HealthChecker.js";
 
@@ -24,13 +25,7 @@ app.get("/", (c) => {
   return c.text("OK");
 });
 
-app.get("/health", (c) => {
-  return c.json({
-    status: "healthy",
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || "development",
-  });
-});
+app.route("/monitoring", monitoring);
 
 appLogger.info("Starting PgBouncer failover application");
 await warmupConnections(databaseConfig.hosts);
