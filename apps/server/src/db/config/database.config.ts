@@ -2,7 +2,7 @@ import type {
   DatabaseConfig,
   FailoverConfig,
   PgBouncerConfig,
-} from "./types.js";
+} from "@/db/config/types.js";
 
 interface EnvConfig {
   POSTGRES_HOST: string;
