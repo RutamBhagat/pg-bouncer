@@ -53,6 +53,8 @@ export class ConnectionPoolManager {
               this.lastSuccessfulHostId
             } to ${host.getId()} (priority ${host.getPriority()}) at ${new Date().toISOString()}`
           );
+        } else if (this.lastSuccessfulHostId === null) {
+          console.log(`Initial connection established to ${host.getId()}`);
         }
 
         this.lastSuccessfulHostId = host.getId();
@@ -107,6 +109,15 @@ export class ConnectionPoolManager {
 
   getAllHostsHealth(): HostHealth[] {
     return this.hosts.map((host) => host.getHealth());
+  }
+
+  resetConnectionState(): void {
+    this.lastSuccessfulHostId = null;
+    console.log("Connection state reset");
+  }
+
+  getCurrentHost(): string | null {
+    return this.lastSuccessfulHostId;
   }
 
   async destroy(): Promise<void> {
