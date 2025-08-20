@@ -41,7 +41,7 @@ services:
       - ./docker/pgbouncer-primary/userlist.txt:/bitnami/pgbouncer/conf/userlist.txt
       - ./logs/pgbouncer-primary:/var/log/pgbouncer
     tmpfs:
-      - /var/run/pgbouncer:rw,noexec,nosuid,size=100m,uid=1001,gid=1001
+      - /var/run/pgbouncer:rw,noexec,nosuid,size=100m,mode=0777
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,7 +72,7 @@ services:
       - ./docker/pgbouncer-secondary/userlist.txt:/bitnami/pgbouncer/conf/userlist.txt
       - ./logs/pgbouncer-secondary:/var/log/pgbouncer
     tmpfs:
-      - /var/run/pgbouncer:rw,noexec,nosuid,size=100m,uid=1001,gid=1001
+      - /var/run/pgbouncer:rw,noexec,nosuid,size=100m,mode=0777
     depends_on:
       postgres:
         condition: service_healthy
@@ -103,7 +103,7 @@ services:
       - ./docker/pgbouncer-tertiary/userlist.txt:/bitnami/pgbouncer/conf/userlist.txt
       - ./logs/pgbouncer-tertiary:/var/log/pgbouncer
     tmpfs:
-      - /var/run/pgbouncer:rw,noexec,nosuid,size=100m,uid=1001,gid=1001
+      - /var/run/pgbouncer:rw,noexec,nosuid,size=100m,mode=0777
     depends_on:
       postgres:
         condition: service_healthy
