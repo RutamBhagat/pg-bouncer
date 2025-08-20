@@ -123,7 +123,7 @@ export class ConnectionPoolManager {
 
   setStrategy(strategy: ConnectionStrategy): void {
     this.strategy = strategy;
-    console.log(`Connection strategy changed to: ${strategy}`);
+    dbLogger.info({ strategy }, 'Connection strategy changed');
   }
 
   getAllHostsHealth(): HostHealth[] {
@@ -132,7 +132,7 @@ export class ConnectionPoolManager {
 
   resetConnectionState(): void {
     this.lastSuccessfulHostId = null;
-    console.log("Connection state reset");
+    dbLogger.info('Connection state reset');
   }
 
   getCurrentHost(): string | null {
