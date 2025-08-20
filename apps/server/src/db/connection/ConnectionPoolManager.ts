@@ -5,6 +5,7 @@ import { PgBouncerHost } from "@/db/connection/PgBouncerHost.js";
 import type { PoolClient } from "pg";
 import pRetry from "p-retry";
 import { dbLogger, failoverLogger } from "@/logger.js";
+import { AlertService, type FailoverEvent } from "@/monitoring/AlertService.js";
 
 type ConnectionStrategy = "FAILOVER" | "LOAD_BALANCE";
 
@@ -12,11 +13,13 @@ export class ConnectionPoolManager {
   private hosts: PgBouncerHost[];
   private strategy: ConnectionStrategy = "FAILOVER";
   private lastSuccessfulHostId: string | null = null;
+  private alertService: AlertService;
 
   constructor(private readonly config: DatabaseConfig) {
     this.hosts = config.hosts
       .map((hostConfig) => new PgBouncerHost(hostConfig))
       .sort((a, b) => a.getPriority() - b.getPriority());
+    this.alertService = new AlertService();
   }
 
   async getConnection(): Promise<PoolClient> {
@@ -50,13 +53,19 @@ export class ConnectionPoolManager {
           this.lastSuccessfulHostId !== null &&
           this.lastSuccessfulHostId !== host.getId()
         ) {
-          failoverLogger.warn({
+          const failoverEvent: FailoverEvent = {
             fromHost: this.lastSuccessfulHostId,
             toHost: host.getId(),
             toHostPriority: host.getPriority(),
             timestamp: new Date().toISOString(),
             event: 'failover_detected'
-          }, 'FAILOVER: Database host switched - this could indicate an issue');
+          };
+
+          failoverLogger.warn(failoverEvent, 'FAILOVER: Database host switched - this could indicate an issue');
+          
+          this.alertService.sendFailoverAlert(failoverEvent).catch(error => {
+            failoverLogger.error({ error: error.message }, 'Failed to send failover alert');
+          });
         } else if (this.lastSuccessfulHostId === null) {
           dbLogger.info({
             hostId: host.getId(),
