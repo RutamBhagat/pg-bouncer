@@ -114,5 +114,94 @@ services:
       retries: 5
     restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    depends_on:
+      - pgbouncer-exporter-primary
+      - pgbouncer-exporter-secondary
+      - pgbouncer-exporter-tertiary
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3002:3000"  # Using 3002 since app uses 3000-3001
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_DOMAIN=localhost
+      - GF_SERVER_HTTP_PORT=3000
+      - GF_SERVER_PROTOCOL=http
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  pgbouncer-exporter-primary:
+    image: prometheuscommunity/pgbouncer-exporter:v0.7.0
+    container_name: pgbouncer-exporter-primary
+    environment:
+      PGBOUNCER_EXPORTER_HOST: pgbouncer-primary
+      PGBOUNCER_EXPORTER_PORT: 6432
+      PGBOUNCER_EXPORTER_DATABASE: pgbouncer
+      PGBOUNCER_EXPORTER_USER: postgres
+      PGBOUNCER_EXPORTER_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    ports:
+      - "9127:9127"
+    depends_on:
+      pgbouncer-primary:
+        condition: service_healthy
+    restart: unless-stopped
+
+  pgbouncer-exporter-secondary:
+    image: prometheuscommunity/pgbouncer-exporter:v0.7.0
+    container_name: pgbouncer-exporter-secondary
+    environment:
+      PGBOUNCER_EXPORTER_HOST: pgbouncer-secondary
+      PGBOUNCER_EXPORTER_PORT: 6432
+      PGBOUNCER_EXPORTER_DATABASE: pgbouncer
+      PGBOUNCER_EXPORTER_USER: postgres
+      PGBOUNCER_EXPORTER_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    ports:
+      - "9128:9127"
+    depends_on:
+      pgbouncer-secondary:
+        condition: service_healthy
+    restart: unless-stopped
+
+  pgbouncer-exporter-tertiary:
+    image: prometheuscommunity/pgbouncer-exporter:v0.7.0
+    container_name: pgbouncer-exporter-tertiary
+    environment:
+      PGBOUNCER_EXPORTER_HOST: pgbouncer-tertiary
+      PGBOUNCER_EXPORTER_PORT: 6432
+      PGBOUNCER_EXPORTER_DATABASE: pgbouncer
+      PGBOUNCER_EXPORTER_USER: postgres
+      PGBOUNCER_EXPORTER_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    ports:
+      - "9129:9127"
+    depends_on:
+      pgbouncer-tertiary:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   pg-bouncer_postgres_data:
+  prometheus_data:
+  grafana_data:
