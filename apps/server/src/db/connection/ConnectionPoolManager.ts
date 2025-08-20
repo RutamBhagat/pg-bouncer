@@ -7,7 +7,6 @@ import pRetry from "p-retry";
 
 export class ConnectionPoolManager {
   private hosts: PgBouncerHost[];
-  private currentPrimaryIndex: number = 0;
 
   constructor(private readonly config: DatabaseConfig) {
     this.hosts = config.hosts
