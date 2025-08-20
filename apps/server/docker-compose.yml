@@ -4,6 +4,7 @@ services:
   postgres:
     image: postgres
     container_name: pg-bouncer-postgres
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
     environment:
       POSTGRES_DB: pg-bouncer
       POSTGRES_USER: postgres
@@ -12,6 +13,7 @@ services:
       - "5432:5432"
     volumes:
       - pg-bouncer_postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/postgresql.conf:/etc/postgresql/postgresql.conf
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
