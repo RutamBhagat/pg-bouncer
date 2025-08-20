@@ -1,7 +1,11 @@
 import "dotenv/config";
+
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { databaseConfig } from "@/db/config/database.config.js";
 import { logger } from "hono/logger";
+import { serve } from "@hono/node-server";
+import { warmupConnections } from "@/db/health/HealthChecker.js";
 
 const app = new Hono();
 
@@ -14,16 +18,11 @@ app.use(
   })
 );
 
-
-
-
-
-
 app.get("/", (c) => {
   return c.text("OK");
 });
 
-import { serve } from "@hono/node-server";
+await warmupConnections(databaseConfig.hosts);
 
 serve(
   {
