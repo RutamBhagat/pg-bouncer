@@ -134,7 +134,13 @@ SLACK_WEBHOOK_URL=  # Optional for failover alerts
 ### Failover Testing
 ```bash
 # Run comprehensive failover test (requires containers running)
-bash apps/server/tests/test-failover.sh
+bash apps/server/tests/chaos-test.sh [scenario]
+
+# Available scenarios:
+# single     - Test primary instance failure
+# cascading  - Test multiple consecutive failures  
+# recovery   - Test full system recovery
+# all        - Run all scenarios
 ```
 The test script validates:
 - Normal operation with primary PgBouncer
