@@ -1,0 +1,47 @@
+{
+  "scenarios": {
+    "normal_load": {
+      "executor": "ramping-vus",
+      "startVUs": 0,
+      "stages": [
+        { "duration": "30s", "target": 100 },
+        { "duration": "2m", "target": 100 },
+        { "duration": "30s", "target": 0 }
+      ]
+    },
+    "spike_test": {
+      "executor": "ramping-vus",
+      "startVUs": 50,
+      "stages": [
+        { "duration": "10s", "target": 50 },
+        { "duration": "5s", "target": 400 },
+        { "duration": "1m", "target": 400 },
+        { "duration": "30s", "target": 0 }
+      ]
+    },
+    "stress_test": {
+      "executor": "ramping-vus",
+      "startVUs": 0,
+      "stages": [
+        { "duration": "1m", "target": 200 },
+        { "duration": "1m", "target": 400 },
+        { "duration": "1m", "target": 500 },
+        { "duration": "2m", "target": 500 },
+        { "duration": "1m", "target": 0 }
+      ]
+    },
+    "soak_test": {
+      "executor": "constant-vus",
+      "vus": 200,
+      "duration": "10m"
+    }
+  },
+  "thresholds": {
+    "http_req_duration": ["p(95)<500"],
+    "http_req_failed": ["rate<0.01"],
+    "errors": ["rate<0.01"],
+    "failover_duration": ["avg<5000"]
+  },
+  "summaryTrendStats": ["avg", "min", "med", "max", "p(90)", "p(95)", "p(99)"],
+  "summaryTimeUnit": "ms"
+}
