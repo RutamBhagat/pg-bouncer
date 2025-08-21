@@ -66,7 +66,7 @@ export default function () {
     
     try {
       const body = JSON.parse(response.body as string);
-      const currentInstance = body.activeInstance;
+      const currentInstance = body.active_pgbouncer;
       
       if (lastActiveInstance && lastActiveInstance !== currentInstance) {
         failoverDetected.add(1);
