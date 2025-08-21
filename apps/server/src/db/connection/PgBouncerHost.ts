@@ -21,6 +21,10 @@ export class PgBouncerHost {
       connectionTimeoutMillis: 5000,
     });
 
+    this.pool.on('error', (err) => {
+      console.error(`Pool error for ${config.id}:`, err.message);
+    });
+
     this.circuitBreaker = new CircuitBreaker(async () => this.pool.connect(), {
       timeout: 5000, // 5s timeout per connection attempt
       errorThresholdPercentage: 50, // Open circuit at 50% failure rate

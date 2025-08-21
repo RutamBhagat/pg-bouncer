@@ -22,8 +22,10 @@ import type { PoolClient } from "pg";
 
 export class FailoverPostgresDialect implements Dialect {
   private connectionManager: ConnectionPoolManager;
+  private config: DatabaseConfig;
 
   constructor(config: DatabaseConfig) {
+    this.config = config;
     this.connectionManager = new ConnectionPoolManager(config);
   }
 
@@ -41,6 +43,27 @@ export class FailoverPostgresDialect implements Dialect {
 
   createQueryCompiler(): QueryCompiler {
     return new PostgresQueryCompiler();
+  }
+
+  getConnectionInfo(): { 
+    currentHost: string | null; 
+    allHosts: { id: string; status: string; priority: number; consecutiveFailures: number }[] 
+  } {
+    const currentHostId = this.connectionManager.getCurrentHost();
+    const healthStatus = this.connectionManager.getAllHostsHealth();
+    
+    return {
+      currentHost: currentHostId,
+      allHosts: healthStatus.map((h) => {
+        const hostConfig = this.config.hosts.find(host => host.id === h.id);
+        return {
+          id: h.id,
+          status: h.status,
+          priority: hostConfig?.priority || 999,
+          consecutiveFailures: h.consecutiveFailures
+        };
+      })
+    };
   }
 }
 
