@@ -29,7 +29,7 @@ export class PgBouncerHost {
       timeout: 2000, // 2s timeout per connection attempt
       errorThresholdPercentage: 50, // Open circuit at 50% failure rate
       resetTimeout: 30000, // Try again after 30s
-      volumeThreshold: 2, // Need at least 2 requests to calculate percentage
+      volumeThreshold: 5, // Need at least 5 requests to calculate percentage
     });
 
     this.health = {
