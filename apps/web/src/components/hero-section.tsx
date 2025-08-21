@@ -9,6 +9,7 @@ export default function HeroSection() {
     currentPgBouncer,
     formattedHostsStatus,
     responses,
+    data,
     isMonitoring,
     toggleMonitoring,
   } = usePgBouncerMonitor();
@@ -39,9 +40,41 @@ export default function HeroSection() {
                 <h1 className="mt-8 max-w-2xl text-balance text-5xl font-medium md:text-6xl lg:mt-16 xl:text-7xl">
                   {getCurrentInstanceName()}
                 </h1>
-                <p className="mt-8 max-w-2xl text-pretty text-lg">
-                  {formattedHostsStatus}
-                </p>
+                <div className="mt-8 max-w-2xl">
+                  <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
+                    {data?.hosts?.sort((a, b) => a.priority - b.priority).map((host) => {
+                      const priorityName = host.priority === 1 ? "Primary" : 
+                                          host.priority === 2 ? "Secondary" : 
+                                          host.priority === 3 ? "Tertiary" : 
+                                          `Priority ${host.priority}`;
+                      const isActive = data.currentActiveHost === host.id;
+                      return (
+                        <div
+                          key={host.id}
+                          className={`px-3 py-1 rounded-full text-sm font-medium border transition-all ${
+                            host.healthy
+                              ? isActive
+                                ? "bg-green-500/20 text-green-400 border-green-500/30 ring-2 ring-green-500/50"
+                                : "bg-green-500/10 text-green-400 border-green-500/20"
+                              : "bg-red-500/10 text-red-400 border-red-500/20"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={`w-2 h-2 rounded-full ${
+                                host.healthy ? "bg-green-400" : "bg-red-400"
+                              }`}
+                            />
+                            {priorityName}
+                            {isActive && <span className="text-xs">(Active)</span>}
+                          </div>
+                        </div>
+                      );
+                    }) || (
+                      <div className="text-muted-foreground">Loading status...</div>
+                    )}
+                  </div>
+                </div>
 
                 <div className="mt-12 flex flex-col items-center justify-center gap-2 sm:flex-row lg:justify-start">
                   <Button
