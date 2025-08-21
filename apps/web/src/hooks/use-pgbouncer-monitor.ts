@@ -90,23 +90,31 @@ export function usePgBouncerMonitor() {
 
   const getCurrentPgBouncer = () => {
     if (!data?.hosts || !data.currentActiveHost) return null;
-    
-    return data.hosts.find(host => host.id === data.currentActiveHost) || null;
+
+    return (
+      data.hosts.find((host) => host.id === data.currentActiveHost) || null
+    );
   };
 
   const getFormattedHostsStatus = () => {
     if (!data?.hosts) return "No data available";
-    
+
     const sortedHosts = [...data.hosts].sort((a, b) => a.priority - b.priority);
-    
-    return sortedHosts.map(host => {
-      const priorityName = host.priority === 1 ? "primary" : 
-                          host.priority === 2 ? "secondary" : 
-                          host.priority === 3 ? "tertiary" : 
-                          `priority-${host.priority}`;
-      const status = host.healthy ? "healthy" : "unhealthy";
-      return `${priorityName}:${status}`;
-    }).join(" ");
+
+    return sortedHosts
+      .map((host) => {
+        const priorityName =
+          host.priority === 1
+            ? "primary"
+            : host.priority === 2
+            ? "secondary"
+            : host.priority === 3
+            ? "tertiary"
+            : `priority-${host.priority}`;
+        const status = host.healthy ? "healthy" : "unhealthy";
+        return `${priorityName}:${status}`;
+      })
+      .join(" ");
   };
 
   return {
