@@ -45,6 +45,10 @@ export class FailoverPostgresDialect implements Dialect {
     return new PostgresQueryCompiler();
   }
 
+  getConnectionManager(): ConnectionPoolManager {
+    return this.connectionManager;
+  }
+
   getConnectionInfo(): { 
     currentHost: string | null; 
     allHosts: { id: string; status: string; priority: number; consecutiveFailures: number }[] 
@@ -71,7 +75,7 @@ class FailoverDriver implements Driver {
   constructor(private connectionManager: ConnectionPoolManager) {}
 
   async init(): Promise<void> {
-    // Connection pools are initialized lazily, nothing to do here
+    // Connection pools are initialized lazily
     console.log("FailoverDriver initialized");
   }
 
