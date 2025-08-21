@@ -23,8 +23,8 @@ export class PgBouncerHost {
 
     this.pool.on('error', (err) => {
       console.error(`Pool error for ${config.id}:`, err.message);
-      this.health.status = HostStatus.CIRCUIT_OPEN;
-      this.health.consecutiveFailures++;
+      // Don't change health status here - let the circuit breaker handle it
+      // Pool errors are expected when connections are terminated
     });
 
     this.circuitBreaker = new CircuitBreaker(async () => this.pool.connect(), {
