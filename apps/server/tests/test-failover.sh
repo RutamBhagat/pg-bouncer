@@ -42,20 +42,44 @@ echo ""
 echo -e "${YELLOW}=== TEST 2: Stop primary, watch failover to secondary ===${NC}"
 docker stop pgbouncer-primary
 echo "Waiting for failover (making 6 requests)..."
+
+# Initialize pass flag
+FAILOVER_TO_SECONDARY=false
+
 for i in {1..6}; do
   echo -n "Attempt $i: "
-  curl -s http://localhost:3000/api/test-query | python3 -c "
+  RESPONSE=$(curl -s http://localhost:3000/api/test-query)
+  RESULT=$(echo "$RESPONSE" | python3 -c "
 import sys, json
 try:
     data = json.load(sys.stdin)
     if data['status'] == 'success':
         print(f\"✅ SUCCESS - Using {data['active_pgbouncer']}\")
+        # Check if we've failed over to secondary
+        if data['active_pgbouncer'] == 'pgbouncer-secondary':
+            print('FAILOVER_DETECTED')
     else:
         print(f\"❌ FAILED - {data.get('error', 'Connection failed')}\")
-except:
-    print('❌ Request failed')"
+except Exception as e:
+    print('❌ Request failed - JSON parse error')")
+  
+  echo "$RESULT" | grep -v "FAILOVER_DETECTED" || true
+  
+  # Check if failover to secondary was detected
+  if echo "$RESULT" | grep -q "FAILOVER_DETECTED"; then
+    FAILOVER_TO_SECONDARY=true
+  fi
+  
   sleep 1
 done
+
+# Check if test passed
+if [ "$FAILOVER_TO_SECONDARY" = true ]; then
+  echo -e "${GREEN}✅ TEST 2 PASSED: Failover to secondary successful${NC}"
+else
+  echo -e "${RED}❌ TEST 2 FAILED: Failover to secondary did not occur${NC}"
+  exit 1
+fi
 echo ""
 
 # =====================================
@@ -64,20 +88,44 @@ echo ""
 echo -e "${YELLOW}=== TEST 3: Stop secondary, watch failover to tertiary ===${NC}"
 docker stop pgbouncer-secondary
 echo "Waiting for cascading failover (making 8 requests)..."
+
+# Initialize pass flag
+FAILOVER_TO_TERTIARY=false
+
 for i in {1..8}; do
   echo -n "Attempt $i: "
-  curl -s http://localhost:3000/api/test-query | python3 -c "
+  RESPONSE=$(curl -s http://localhost:3000/api/test-query)
+  RESULT=$(echo "$RESPONSE" | python3 -c "
 import sys, json
 try:
     data = json.load(sys.stdin)
     if data['status'] == 'success':
         print(f\"✅ SUCCESS - Using {data['active_pgbouncer']}\")
+        # Check if we've failed over to tertiary
+        if data['active_pgbouncer'] == 'pgbouncer-tertiary':
+            print('FAILOVER_DETECTED')
     else:
         print(f\"❌ FAILED - Trying next host...\")
-except:
-    print('❌ Request failed')"
+except Exception as e:
+    print('❌ Request failed - JSON parse error')")
+  
+  echo "$RESULT" | grep -v "FAILOVER_DETECTED" || true
+  
+  # Check if failover to tertiary was detected
+  if echo "$RESULT" | grep -q "FAILOVER_DETECTED"; then
+    FAILOVER_TO_TERTIARY=true
+  fi
+  
   sleep 1
 done
+
+# Check if test passed
+if [ "$FAILOVER_TO_TERTIARY" = true ]; then
+  echo -e "${GREEN}✅ TEST 3 PASSED: Cascading failover to tertiary successful${NC}"
+else
+  echo -e "${RED}❌ TEST 3 FAILED: Cascading failover to tertiary did not occur${NC}"
+  exit 1
+fi
 echo ""
 
 # =====================================
@@ -103,13 +151,36 @@ docker start pgbouncer-primary
 echo "Waiting 35 seconds for circuit breaker reset..."
 sleep 35
 
-curl -s http://localhost:3000/api/test-query | python3 -c "
+# Initialize recovery flag
+AUTO_RECOVERY_PASSED=false
+
+RESPONSE=$(curl -s http://localhost:3000/api/test-query)
+RESULT=$(echo "$RESPONSE" | python3 -c "
 import sys, json
-data = json.load(sys.stdin)
-if data['active_pgbouncer'] == 'pgbouncer-primary':
-    print('✅ AUTO-RECOVERY SUCCESSFUL! Back to primary!')
-else:
-    print(f\"⏳ Still using {data['active_pgbouncer']} (may need more time)\")"
+try:
+    data = json.load(sys.stdin)
+    if data['active_pgbouncer'] == 'pgbouncer-primary':
+        print('✅ AUTO-RECOVERY SUCCESSFUL! Back to primary!')
+        print('RECOVERY_DETECTED')
+    else:
+        print(f\"⏳ Still using {data['active_pgbouncer']} (may need more time)\")
+except Exception as e:
+    print('❌ Failed to check recovery - JSON parse error')")
+
+echo "$RESULT" | grep -v "RECOVERY_DETECTED" || true
+
+# Check if recovery was detected
+if echo "$RESULT" | grep -q "RECOVERY_DETECTED"; then
+  AUTO_RECOVERY_PASSED=true
+fi
+
+# Check if test passed
+if [ "$AUTO_RECOVERY_PASSED" = true ]; then
+  echo -e "${GREEN}✅ TEST 5 PASSED: Auto-recovery to primary successful${NC}"
+else
+  echo -e "${RED}❌ TEST 5 FAILED: Auto-recovery to primary did not occur${NC}"
+  exit 1
+fi
 echo ""
 
 # =====================================
@@ -121,9 +192,19 @@ sleep 5
 echo -e "${GREEN}✅ All PgBouncers restored${NC}"
 echo ""
 
-echo -e "${GREEN}=== TEST COMPLETE ===${NC}"
+# =====================================
+# FINAL RESULTS
+# =====================================
+echo -e "${GREEN}=== ALL TESTS COMPLETED SUCCESSFULLY ===${NC}"
 echo "Summary:"
-echo "  ✅ Primary → Secondary failover works"
-echo "  ✅ Secondary → Tertiary failover works"
-echo "  ✅ Automatic recovery to primary works"
+echo "  ✅ TEST 1: Normal operation verified"
+echo "  ✅ TEST 2: Primary → Secondary failover works"
+echo "  ✅ TEST 3: Secondary → Tertiary failover works"
+echo "  ✅ TEST 4: Final state verified"
+echo "  ✅ TEST 5: Automatic recovery to primary works"
 echo "  ✅ Circuit breaker pattern functioning correctly"
+echo ""
+echo -e "${GREEN}All failover mechanisms working as expected!${NC}"
+
+# Exit with success code
+exit 0
