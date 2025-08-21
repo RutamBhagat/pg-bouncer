@@ -3,7 +3,7 @@
 # PgBouncer Chaos Testing Script
 # Tests failover scenarios and measures MTTR (Mean Time To Recovery)
 
-set -e
+set -Eeuo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:3000}"
 SCENARIO="${1:-single}"
@@ -39,7 +39,8 @@ check_prerequisites() {
 
 # Get current active instance using Python (like working test-failover.sh)
 get_active_instance() {
-    local response=$(curl -s "${BASE_URL}/api/test-query" 2>/dev/null)
+    local response=$(curl -fsS --connect-timeout 1 --max-time 2 "${BASE_URL}/api/test-query" \
+        || echo '{"status":"error","error":"curl failed"}') 2>/dev/null
     echo "$response" | python3 -c "
 import sys, json
 try:
@@ -59,7 +60,8 @@ wait_for_failover_to() {
     for i in $(seq 1 $max_attempts); do
         echo -n "Attempt $i: "
         
-        RESPONSE=$(curl -s "${BASE_URL}/api/test-query")
+        RESPONSE=$(curl -fsS --connect-timeout 1 --max-time 2 "${BASE_URL}/api/test-query" \
+            || echo '{"status":"error","error":"curl failed"}')
         RESULT=$(echo "$RESPONSE" | python3 -c "
 import sys, json
 try:
@@ -97,7 +99,8 @@ test_single_failure() {
     
     # Verify primary is active before test
     echo -e "${YELLOW}Making request to verify primary is active...${NC}"
-    local primary_response=$(curl -s "${BASE_URL}/api/test-query")
+    local primary_response=$(curl -fsS --connect-timeout 1 --max-time 2 "${BASE_URL}/api/test-query" \
+        || echo '{"status":"error","error":"curl failed"}')
     local primary_result=$(echo "$primary_response" | python3 -c "
 import sys, json
 try:
@@ -115,7 +118,7 @@ except Exception as e:
     echo -e "${YELLOW}Killing primary container at $(date)${NC}"
     
     # Kill primary container (immediate termination)
-    docker kill "${PRIMARY_CONTAINER}" >/dev/null 2>&1
+    docker kill "${PRIMARY_CONTAINER}" >/dev/null 2>&1 || true
     
     # Wait for failover to secondary
     if wait_for_failover_to "pgbouncer-secondary"; then
@@ -126,7 +129,7 @@ except Exception as e:
         
         # Restart primary
         echo -e "${YELLOW}Restarting primary container...${NC}"
-        docker start "${PRIMARY_CONTAINER}" >/dev/null 2>&1
+        docker start "${PRIMARY_CONTAINER}" >/dev/null 2>&1 || true
         sleep 10
         
         # Check if primary rejoins
@@ -161,7 +164,8 @@ test_cascading_failure() {
     
     # Verify primary is active before test
     echo -e "${YELLOW}Making request to verify primary is active...${NC}"
-    local initial_response=$(curl -s "${BASE_URL}/api/test-query")
+    local initial_response=$(curl -fsS --connect-timeout 1 --max-time 2 "${BASE_URL}/api/test-query" \
+        || echo '{"status":"error","error":"curl failed"}')
     local initial_result=$(echo "$initial_response" | python3 -c "
 import sys, json
 try:
@@ -177,7 +181,7 @@ except Exception as e:
     # Kill primary
     local start_time=$(date +%s%3N)
     echo -e "${YELLOW}Killing primary container...${NC}"
-    docker kill "${PRIMARY_CONTAINER}" >/dev/null 2>&1
+    docker kill "${PRIMARY_CONTAINER}" >/dev/null 2>&1 || true
     
     # Wait for failover to secondary
     if wait_for_failover_to "pgbouncer-secondary"; then
@@ -189,7 +193,7 @@ except Exception as e:
         sleep 5
         echo -e "${YELLOW}Killing secondary container...${NC}"
         local second_start=$(date +%s%3N)
-        docker kill "${SECONDARY_CONTAINER}" >/dev/null 2>&1
+        docker kill "${SECONDARY_CONTAINER}" >/dev/null 2>&1 || true
         
         # Wait for failover to tertiary
         if wait_for_failover_to "pgbouncer-tertiary"; then
@@ -201,7 +205,7 @@ except Exception as e:
             
             # Restart all containers
             echo -e "${YELLOW}Restarting all containers...${NC}"
-            docker start "${PRIMARY_CONTAINER}" "${SECONDARY_CONTAINER}" >/dev/null 2>&1
+            docker start "${PRIMARY_CONTAINER}" "${SECONDARY_CONTAINER}" >/dev/null 2>&1 || true
             sleep 15
             
             echo -e "${BLUE}=== Cascading Failure Results ===${NC}"
@@ -234,12 +238,13 @@ test_recovery() {
     
     # Kill only primary and secondary, keep tertiary running (like original test)
     echo -e "${YELLOW}Stopping primary and secondary containers...${NC}"
-    docker kill "${PRIMARY_CONTAINER}" "${SECONDARY_CONTAINER}" >/dev/null 2>&1
+    docker kill "${PRIMARY_CONTAINER}" "${SECONDARY_CONTAINER}" >/dev/null 2>&1 || true
     sleep 5
     
     # Verify tertiary is active before starting primary
     echo -e "${YELLOW}Making request to verify tertiary is active...${NC}"
-    local tertiary_response=$(curl -s "${BASE_URL}/api/test-query")
+    local tertiary_response=$(curl -fsS --connect-timeout 1 --max-time 2 "${BASE_URL}/api/test-query" \
+        || echo '{"status":"error","error":"curl failed"}')
     local tertiary_result=$(echo "$tertiary_response" | python3 -c "
 import sys, json
 try:
@@ -254,7 +259,7 @@ except Exception as e:
     
     # Start primary
     echo -e "${YELLOW}Starting primary container...${NC}"
-    docker start "${PRIMARY_CONTAINER}" >/dev/null 2>&1
+    docker start "${PRIMARY_CONTAINER}" >/dev/null 2>&1 || true
     
     # Wait for circuit breaker reset (30 seconds) before trying to connect
     echo -e "${YELLOW}Waiting 30 seconds for circuit breaker reset...${NC}"
@@ -269,7 +274,7 @@ except Exception as e:
         local mttr=$((recovery_time - start_time))
         
         # Start other containers
-        docker start "${SECONDARY_CONTAINER}" "${TERTIARY_CONTAINER}" >/dev/null 2>&1
+        docker start "${SECONDARY_CONTAINER}" "${TERTIARY_CONTAINER}" >/dev/null 2>&1 || true
         sleep 10
         
         echo -e "${BLUE}=== Recovery Results ===${NC}"
