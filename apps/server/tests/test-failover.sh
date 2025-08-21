@@ -61,7 +61,7 @@ try:
     else:
         print(f\"❌ FAILED - {data.get('error', 'Connection failed')}\")
 except Exception as e:
-    print('❌ Request failed - JSON parse error')")
+    print('❌ FAILED - JSON parse error')")
   
   echo "$RESULT" | grep -v "FAILOVER_DETECTED" || true
   
@@ -105,9 +105,9 @@ try:
         if data['active_pgbouncer'] == 'pgbouncer-tertiary':
             print('FAILOVER_DETECTED')
     else:
-        print(f\"❌ FAILED - Trying next host...\")
+        print(f\"❌ FAILED - {data.get('error', 'Failed to connect to pgbouncer-secondary')}\")
 except Exception as e:
-    print('❌ Request failed - JSON parse error')")
+    print('❌ FAILED - JSON parse error')")
   
   echo "$RESULT" | grep -v "FAILOVER_DETECTED" || true
   
@@ -148,31 +148,45 @@ echo ""
 # =====================================
 echo -e "${YELLOW}=== TEST 5: Restart primary and watch auto-recovery ===${NC}"
 docker start pgbouncer-primary
-echo "Waiting 35 seconds for circuit breaker reset..."
-sleep 35
+
+# Circuit breaker has 30s reset timeout, so we need to wait before checking
+echo "Waiting 30 seconds for circuit breaker reset timeout..."
+sleep 30
+
+echo "Now checking for auto-recovery (making 5 attempts)..."
 
 # Initialize recovery flag
 AUTO_RECOVERY_PASSED=false
 
-RESPONSE=$(curl -s http://localhost:3000/api/test-query)
-RESULT=$(echo "$RESPONSE" | python3 -c "
+# Check recovery over multiple attempts
+for i in {1..5}; do
+  echo -n "Attempt $i: "
+  
+  RESPONSE=$(curl -s http://localhost:3000/api/test-query)
+  RESULT=$(echo "$RESPONSE" | python3 -c "
 import sys, json
 try:
     data = json.load(sys.stdin)
-    if data['active_pgbouncer'] == 'pgbouncer-primary':
-        print('✅ AUTO-RECOVERY SUCCESSFUL! Back to primary!')
-        print('RECOVERY_DETECTED')
+    if data['status'] == 'success':
+        print(f\"✅ SUCCESS - Using {data['active_pgbouncer']}\")
+        if data['active_pgbouncer'] == 'pgbouncer-primary':
+            print('RECOVERY_DETECTED')
     else:
-        print(f\"⏳ Still using {data['active_pgbouncer']} (may need more time)\")
+        print(f\"❌ FAILED - {data.get('error', 'Connection failed')}\")
 except Exception as e:
-    print('❌ Failed to check recovery - JSON parse error')")
-
-echo "$RESULT" | grep -v "RECOVERY_DETECTED" || true
-
-# Check if recovery was detected
-if echo "$RESULT" | grep -q "RECOVERY_DETECTED"; then
-  AUTO_RECOVERY_PASSED=true
-fi
+    print('❌ FAILED - JSON parse error')")
+  
+  echo "$RESULT" | grep -v "RECOVERY_DETECTED" || true
+  
+  # Check if recovery was detected
+  if echo "$RESULT" | grep -q "RECOVERY_DETECTED"; then
+    AUTO_RECOVERY_PASSED=true
+    break
+  fi
+  
+  # Wait 2 seconds between attempts
+  sleep 2
+done
 
 # Check if test passed
 if [ "$AUTO_RECOVERY_PASSED" = true ]; then
