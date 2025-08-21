@@ -37,37 +37,54 @@ check_prerequisites() {
     fi
 }
 
-# Get current active instance  
+# Get current active instance using Python (like working test-failover.sh)
 get_active_instance() {
     local response=$(curl -s "${BASE_URL}/api/test-query" 2>/dev/null)
-    if command -v jq &> /dev/null; then
-        echo "$response" | jq -r '.active_pgbouncer // "unknown"' 2>/dev/null || echo "unknown"
-    else
-        # Fallback without jq
-        echo "$response" | grep -o '"active_pgbouncer":"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "unknown"
-    fi
+    echo "$response" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    print(data.get('active_pgbouncer', 'unknown'))
+except:
+    print('unknown')" 2>/dev/null || echo "unknown"
 }
 
-# Wait for system to be healthy on specific instance
-wait_for_healthy() {
+# Wait for failover using multiple requests (like working test-failover.sh)
+wait_for_failover_to() {
     local expected_instance="$1"
-    local timeout=30
-    local count=0
+    local max_attempts=8
     
-    echo -e "${YELLOW}Waiting for system to be healthy on ${expected_instance}...${NC}"
-    echo -e "${YELLOW}(Circuit breaker: 5 failures then 30s to half-open)${NC}"
+    echo -e "${YELLOW}Making ${max_attempts} requests to trigger circuit breaker and detect failover...${NC}"
     
-    while [[ $count -lt $timeout ]]; do
-        local current_instance=$(get_active_instance)
-        if [[ "$current_instance" == "$expected_instance" ]]; then
-            echo -e "${GREEN}System healthy on ${expected_instance}${NC}"
+    for i in $(seq 1 $max_attempts); do
+        echo -n "Attempt $i: "
+        
+        RESPONSE=$(curl -s "${BASE_URL}/api/test-query")
+        RESULT=$(echo "$RESPONSE" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    if data['status'] == 'success':
+        print(f\"SUCCESS - Using {data['active_pgbouncer']}\")
+        if data['active_pgbouncer'] == '$expected_instance':
+            print('FAILOVER_DETECTED')
+    else:
+        print(f\"FAILED - {data.get('error', 'Connection failed')}\")
+except Exception as e:
+    print('FAILED - JSON parse error')")
+        
+        echo "$RESULT" | grep -v "FAILOVER_DETECTED" || true
+        
+        # Check if failover was detected
+        if echo "$RESULT" | grep -q "FAILOVER_DETECTED"; then
+            echo -e "${GREEN}Failover to ${expected_instance} detected!${NC}"
             return 0
         fi
+        
         sleep 1
-        ((count++))
     done
     
-    echo -e "${RED}Timeout waiting for ${expected_instance} to be healthy${NC}"
+    echo -e "${RED}Failover to ${expected_instance} not detected after ${max_attempts} attempts${NC}"
     return 1
 }
 
@@ -90,7 +107,7 @@ test_single_failure() {
     docker stop "${PRIMARY_CONTAINER}" >/dev/null 2>&1
     
     # Wait for failover to secondary
-    if wait_for_healthy "secondary"; then
+    if wait_for_failover_to "pgbouncer-secondary"; then
         local failover_complete=$(date +%s%3N)
         local mttr=$((failover_complete - failure_start))
         
@@ -139,7 +156,7 @@ test_cascading_failure() {
     docker stop "${PRIMARY_CONTAINER}" >/dev/null 2>&1
     
     # Wait for failover to secondary
-    if wait_for_healthy "secondary"; then
+    if wait_for_failover_to "pgbouncer-secondary"; then
         local secondary_active=$(date +%s%3N)
         local first_failover=$((secondary_active - start_time))
         echo -e "${GREEN}First failover completed in ${first_failover}ms${NC}"
@@ -150,7 +167,7 @@ test_cascading_failure() {
         docker stop "${SECONDARY_CONTAINER}" >/dev/null 2>&1
         
         # Wait for failover to tertiary
-        if wait_for_healthy "tertiary"; then
+        if wait_for_failover_to "pgbouncer-tertiary"; then
             local tertiary_active=$(date +%s%3N)
             local total_time=$((tertiary_active - start_time))
             
@@ -200,7 +217,7 @@ test_network_partition() {
         iptables -A OUTPUT -p tcp --dport "${primary_port}" -j DROP
         
         # Wait for failover detection
-        if wait_for_healthy "secondary"; then
+        if wait_for_failover_to "pgbouncer-secondary"; then
             local failover_time=$(date +%s%3N)
             local mttr=$((failover_time - start_time))
             
@@ -245,7 +262,7 @@ test_recovery() {
     docker start "${PRIMARY_CONTAINER}" >/dev/null 2>&1
     
     # Wait for primary to be healthy
-    if wait_for_healthy "primary"; then
+    if wait_for_failover_to "pgbouncer-primary"; then
         local recovery_time=$(date +%s%3N)
         local mttr=$((recovery_time - start_time))
         
