@@ -93,12 +93,15 @@ export class ConnectionPoolManager {
     throw new Error(`Failed to connect to any PgBouncer instance after ${maxAttempts} attempts. Last error: ${lastError?.message}`);
   }
 
-  // FAILOVER: (1 → 2 → 3)
+  // FAILOVER: Try hosts in priority order (1 → 2 → 3)
   private selectHostForFailover(
     availableHosts: PgBouncerHost[],
     attempt: number
   ): PgBouncerHost {
-    return availableHosts[0]; // Always try highest priority available
+    // Try hosts in priority order, but only try each host once per connection attempt
+    // availableHosts is already sorted by priority in constructor
+    const index = Math.min(attempt - 1, availableHosts.length - 1);
+    return availableHosts[index];
   }
 
   // LOAD_BALANCE: Cycle through hosts
