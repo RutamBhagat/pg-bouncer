@@ -2,7 +2,6 @@ import "../index.css";
 
 import { Geist, Geist_Mono } from "next/font/google";
 
-import { HeroHeader } from "@/components/header";
 import type { Metadata } from "next";
 import Providers from "@/components/providers";
 
@@ -33,7 +32,6 @@ export default function RootLayout({
       >
         <Providers>
           <div className="grid grid-rows-[auto_1fr] h-svh">
-            <HeroHeader />
             {children}
           </div>
         </Providers>
