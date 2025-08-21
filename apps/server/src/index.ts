@@ -6,6 +6,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { databaseConfig } from "@/db/config/database.config.js";
 import { monitoring } from "@/routers/monitoring.js";
+import { test } from "@/routers/test.js";
 import { serve } from "@hono/node-server";
 import { warmupConnections } from "@/db/health/HealthChecker.js";
 
