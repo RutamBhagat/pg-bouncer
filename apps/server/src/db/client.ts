@@ -5,13 +5,15 @@ import { databaseConfig } from "@/db/config/database.config.js";
 
 class DatabaseClient {
   private static instance: Kysely<DB> | null = null;
+  private static dialect: FailoverPostgresDialect | null = null;
 
   static getInstance(): Kysely<DB> {
     if (!DatabaseClient.instance) {
       console.log("Initializing database client with failover support...");
 
+      DatabaseClient.dialect = new FailoverPostgresDialect(databaseConfig);
       DatabaseClient.instance = new Kysely<DB>({
-        dialect: new FailoverPostgresDialect(databaseConfig),
+        dialect: DatabaseClient.dialect,
       });
 
       console.log(
@@ -24,15 +26,22 @@ class DatabaseClient {
     return DatabaseClient.instance;
   }
 
+  static getDialect(): FailoverPostgresDialect | null {
+    return DatabaseClient.dialect;
+  }
+
   static async destroy(): Promise<void> {
     if (DatabaseClient.instance) {
       await DatabaseClient.instance.destroy();
       DatabaseClient.instance = null;
+      DatabaseClient.dialect = null;
       console.log("Database client destroyed");
     }
   }
 }
 
 export const db = DatabaseClient.getInstance();
+
+export const getDbDialect = DatabaseClient.getDialect;
 
 export const destroyDatabaseClient = DatabaseClient.destroy;
