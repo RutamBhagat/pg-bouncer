@@ -37,9 +37,15 @@ check_prerequisites() {
     fi
 }
 
-# Get current active instance
+# Get current active instance  
 get_active_instance() {
-    curl -s "${BASE_URL}/api/test-query" | jq -r '.activeInstance' 2>/dev/null || echo "unknown"
+    local response=$(curl -s "${BASE_URL}/api/test-query" 2>/dev/null)
+    if command -v jq &> /dev/null; then
+        echo "$response" | jq -r '.active_pgbouncer // "unknown"' 2>/dev/null || echo "unknown"
+    else
+        # Fallback without jq
+        echo "$response" | grep -o '"active_pgbouncer":"[^"]*"' | cut -d'"' -f4 2>/dev/null || echo "unknown"
+    fi
 }
 
 # Wait for system to be healthy on specific instance
@@ -49,6 +55,7 @@ wait_for_healthy() {
     local count=0
     
     echo -e "${YELLOW}Waiting for system to be healthy on ${expected_instance}...${NC}"
+    echo -e "${YELLOW}(Circuit breaker: 5 failures then 30s to half-open)${NC}"
     
     while [[ $count -lt $timeout ]]; do
         local current_instance=$(get_active_instance)
