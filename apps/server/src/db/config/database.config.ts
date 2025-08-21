@@ -66,9 +66,9 @@ export const databaseConfig: DatabaseConfig = {
   },
   failover: {
     maxRetryAttempts: 3,
-    connectionTimeoutMs: 5000,
+    connectionTimeoutMs: 2000,
     queryTimeoutMs: 30000,
-    circuitBreakerFailureThreshold: 5,
+    circuitBreakerFailureThreshold: 2,
     circuitBreakerRecoveryTimeoutMs: 30000,
     healthCheckIntervalMs: 10000,
   },
