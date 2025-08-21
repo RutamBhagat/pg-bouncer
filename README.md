@@ -129,12 +129,34 @@ SLACK_WEBHOOK_URL=  # Optional for failover alerts
 - **App Metrics**: Available at `/monitoring/metrics` (port 3000)
 - **Health Check**: `/monitoring/health` endpoint
 
+## Testing & Verification
+
+### Failover Testing
+```bash
+# Run comprehensive failover test (requires containers running)
+bash apps/server/tests/test-failover.sh
+```
+The test script validates:
+- Normal operation with primary PgBouncer
+- Automatic failover to secondary when primary fails
+- Recovery detection when primary comes back online
+- Cascading failover to tertiary instance
+- Full recovery with all instances restored
+
+### API Testing Endpoints
+- `/api/test-query` - Tests database connectivity and shows active PgBouncer
+- `/monitoring/health` - Basic health check
+- `/monitoring/health/detailed` - Detailed health status of all PgBouncer instances
+- `/monitoring/metrics` - Prometheus-compatible metrics endpoint
+
 ## Important Notes
 
-- No test framework currently configured
-- Circuit breaker pattern implemented for connection resilience
+- No unit test framework currently configured (only integration test script)
+- Circuit breaker pattern implemented for connection resilience (Opossum library)
 - All PgBouncer instances use trust authentication internally
 - CORS configured for local development (localhost:3001)
 - Connection strategy supports both FAILOVER and LOAD_BALANCE modes
 - Failover events trigger alerts with 5-minute cooldown to prevent spam
 - All database operations use structured logging for debugging
+- TypeScript strict mode enabled across monorepo
+- No linting configured for server app (Next.js app has ESLint)
