@@ -25,7 +25,6 @@ test.get("/test-query", async (c) => {
     const dialect = getDbDialect();
     const connectionInfo = dialect ? dialect.getConnectionInfo() : { host: null, hostDetails: [] };
     
-    // Find the host configuration for the current connection
     const currentHostDetails = connectionInfo.hostDetails[0];
     
     const response = {
