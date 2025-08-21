@@ -95,8 +95,20 @@ test_single_failure() {
     # Ensure all containers are running
     docker start "${PRIMARY_CONTAINER}" "${SECONDARY_CONTAINER}" "${TERTIARY_CONTAINER}" >/dev/null 2>&1 || true
     
-    local initial_instance=$(get_active_instance)
-    echo -e "${YELLOW}Initial active instance: ${initial_instance}${NC}"
+    # Verify primary is active before test
+    echo -e "${YELLOW}Making request to verify primary is active...${NC}"
+    local primary_response=$(curl -s "${BASE_URL}/api/test-query")
+    local primary_result=$(echo "$primary_response" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    if data['status'] == 'success':
+        print(f\"Attempt 1: SUCCESS - Using {data['active_pgbouncer']}\")
+    else:
+        print(f\"Attempt 1: FAILED - {data.get('error', 'Connection failed')}\")
+except Exception as e:
+    print('Attempt 1: FAILED - JSON parse error')")
+    echo "$primary_result"
     
     # Record failure start time
     local failure_start=$(date +%s%3N)
@@ -147,7 +159,20 @@ test_cascading_failure() {
     docker start "${PRIMARY_CONTAINER}" "${SECONDARY_CONTAINER}" "${TERTIARY_CONTAINER}" >/dev/null 2>&1 || true
     sleep 5
     
-    echo -e "${YELLOW}Initial state: $(get_active_instance)${NC}"
+    # Verify primary is active before test
+    echo -e "${YELLOW}Making request to verify primary is active...${NC}"
+    local initial_response=$(curl -s "${BASE_URL}/api/test-query")
+    local initial_result=$(echo "$initial_response" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    if data['status'] == 'success':
+        print(f\"Attempt 1: SUCCESS - Using {data['active_pgbouncer']}\")
+    else:
+        print(f\"Attempt 1: FAILED - {data.get('error', 'Connection failed')}\")
+except Exception as e:
+    print('Attempt 1: FAILED - JSON parse error')")
+    echo "$initial_result"
     
     # Kill primary
     local start_time=$(date +%s%3N)
