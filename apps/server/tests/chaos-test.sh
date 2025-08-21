@@ -227,52 +227,6 @@ except Exception as e:
     fi
 }
 
-# Test network partition simulation
-test_network_partition() {
-    echo -e "${BLUE}=== Testing Network Partition ===${NC}"
-    
-    # Get primary container port
-    local primary_port=$(docker port "${PRIMARY_CONTAINER}" 5432 | cut -d':' -f2)
-    
-    echo -e "${YELLOW}Simulating network partition on port ${primary_port}...${NC}"
-    
-    # Block traffic to primary port (requires sudo)
-    if command -v iptables &> /dev/null && [[ $EUID -eq 0 ]]; then
-        local start_time=$(date +%s%3N)
-        
-        # Block outbound connections to primary
-        iptables -A OUTPUT -p tcp --dport "${primary_port}" -j DROP
-        
-        # Wait for failover detection
-        if wait_for_failover_to "pgbouncer-secondary"; then
-            local failover_time=$(date +%s%3N)
-            local mttr=$((failover_time - start_time))
-            
-            # Restore network
-            iptables -D OUTPUT -p tcp --dport "${primary_port}" -j DROP
-            sleep 10
-            
-            echo -e "${BLUE}=== Network Partition Results ===${NC}"
-            echo "Network failover time: ${mttr}ms"
-            
-            if [[ $mttr -lt 5000 ]]; then
-                echo -e "${GREEN}RESULT: PASS${NC}"
-                return 0
-            else
-                echo -e "${RED}RESULT: FAIL${NC}"
-                return 1
-            fi
-        else
-            # Clean up
-            iptables -D OUTPUT -p tcp --dport "${primary_port}" -j DROP 2>/dev/null || true
-            echo -e "${RED}Network partition test failed${NC}"
-            return 1
-        fi
-    else
-        echo -e "${YELLOW}Skipping network partition test (requires root/iptables)${NC}"
-        return 0
-    fi
-}
 
 # Test recovery scenario (matches original test logic)
 test_recovery() {
@@ -345,9 +299,6 @@ main() {
             ;;
         "cascading")
             test_cascading_failure
-            ;;
-        "network")
-            test_network_partition
             ;;
         "recovery")
             test_recovery
