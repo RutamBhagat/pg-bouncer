@@ -115,7 +115,8 @@ export class ConnectionPoolManager {
     availableHosts: PgBouncerHost[],
     attempt: number
   ): PgBouncerHost {
-    return availableHosts[0]; // Always try highest priority available
+    const index = Math.min(attempt - 1, availableHosts.length - 1);
+    return availableHosts[index];
   }
 
   // LOAD_BALANCE: Cycle through hosts
