@@ -30,18 +30,22 @@ export class ConnectionPoolManager {
 
     const maxAttempts = this.config.failover.maxRetryAttempts;
     let lastError: Error | null = null;
-    
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      const host = this.strategy === "FAILOVER"
-        ? this.selectHostForFailover(availableHosts, attempt)
-        : this.selectHostForLoadBalance(availableHosts, attempt);
 
-      dbLogger.debug({
-        hostId: host.getId(),
-        attempt,
-        strategy: this.strategy,
-        priority: host.getPriority()
-      }, 'Attempting database connection');
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const host =
+        this.strategy === "FAILOVER"
+          ? this.selectHostForFailover(availableHosts, attempt)
+          : this.selectHostForLoadBalance(availableHosts, attempt);
+
+      dbLogger.debug(
+        {
+          hostId: host.getId(),
+          attempt,
+          strategy: this.strategy,
+          priority: host.getPriority(),
+        },
+        "Attempting database connection"
+      );
 
       try {
         const connection = await host.getConnection();
@@ -59,41 +63,54 @@ export class ConnectionPoolManager {
             toHost: host.getId(),
             toHostPriority: host.getPriority(),
             timestamp: new Date().toISOString(),
-            event: 'failover_detected'
+            event: "failover_detected",
           };
 
-          failoverLogger.warn(failoverEvent, 'FAILOVER: Database host switched - this could indicate an issue');
-          
-          this.alertService.sendFailoverAlert(failoverEvent).catch(error => {
-            failoverLogger.error({ error: error.message }, 'Failed to send failover alert');
+          failoverLogger.warn(
+            failoverEvent,
+            "FAILOVER: Database host switched - this could indicate an issue"
+          );
+
+          this.alertService.sendFailoverAlert(failoverEvent).catch((error) => {
+            failoverLogger.error(
+              { error: error.message },
+              "Failed to send failover alert"
+            );
           });
         } else if (this.lastSuccessfulHostId === null) {
-          dbLogger.info({
-            hostId: host.getId(),
-            priority: host.getPriority(),
-            event: 'initial_connection'
-          }, 'Initial database connection established');
+          dbLogger.info(
+            {
+              hostId: host.getId(),
+              priority: host.getPriority(),
+              event: "initial_connection",
+            },
+            "Initial database connection established"
+          );
         }
 
         this.lastSuccessfulHostId = host.getId();
         return connection;
-        
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        
-        dbLogger.warn({
-          hostId: host.getId(),
-          attempt,
-          error: lastError.message,
-          attemptsLeft: maxAttempts - attempt
-        }, 'Database connection attempt failed');
+
+        dbLogger.warn(
+          {
+            hostId: host.getId(),
+            attempt,
+            error: lastError.message,
+            attemptsLeft: maxAttempts - attempt,
+          },
+          "Database connection attempt failed"
+        );
       }
     }
 
-    throw new Error(`Failed to connect to any PgBouncer instance after ${maxAttempts} attempts. Last error: ${lastError?.message}`);
+    throw new Error(
+      `Failed to connect to any PgBouncer instance after ${maxAttempts} attempts. Last error: ${lastError?.message}`
+    );
   }
 
-  // FAILOVER: Try hosts in priority order (1 → 2 → 3)
+  // FAILOVER: (1 → 2 → 3)
   private selectHostForFailover(
     availableHosts: PgBouncerHost[],
     attempt: number
@@ -122,7 +139,7 @@ export class ConnectionPoolManager {
 
   setStrategy(strategy: ConnectionStrategy): void {
     this.strategy = strategy;
-    dbLogger.info({ strategy }, 'Connection strategy changed');
+    dbLogger.info({ strategy }, "Connection strategy changed");
   }
 
   getAllHostsHealth(): HostHealth[] {
@@ -131,7 +148,7 @@ export class ConnectionPoolManager {
 
   resetConnectionState(): void {
     this.lastSuccessfulHostId = null;
-    dbLogger.info('Connection state reset');
+    dbLogger.info("Connection state reset");
   }
 
   getCurrentHost(): string | null {
