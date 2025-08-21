@@ -103,8 +103,8 @@ test_single_failure() {
     local failure_start=$(date +%s%3N)
     echo -e "${YELLOW}Killing primary container at $(date)${NC}"
     
-    # Kill primary container
-    docker stop "${PRIMARY_CONTAINER}" >/dev/null 2>&1
+    # Kill primary container (immediate termination)
+    docker kill "${PRIMARY_CONTAINER}" >/dev/null 2>&1
     
     # Wait for failover to secondary
     if wait_for_failover_to "pgbouncer-secondary"; then
@@ -153,7 +153,7 @@ test_cascading_failure() {
     # Kill primary
     local start_time=$(date +%s%3N)
     echo -e "${YELLOW}Killing primary container...${NC}"
-    docker stop "${PRIMARY_CONTAINER}" >/dev/null 2>&1
+    docker kill "${PRIMARY_CONTAINER}" >/dev/null 2>&1
     
     # Wait for failover to secondary
     if wait_for_failover_to "pgbouncer-secondary"; then
@@ -164,7 +164,7 @@ test_cascading_failure() {
         # Kill secondary after brief delay
         sleep 5
         echo -e "${YELLOW}Killing secondary container...${NC}"
-        docker stop "${SECONDARY_CONTAINER}" >/dev/null 2>&1
+        docker kill "${SECONDARY_CONTAINER}" >/dev/null 2>&1
         
         # Wait for failover to tertiary
         if wait_for_failover_to "pgbouncer-tertiary"; then
@@ -253,7 +253,7 @@ test_recovery() {
     
     # Kill all PgBouncer containers
     echo -e "${YELLOW}Stopping all PgBouncer containers...${NC}"
-    docker stop "${PRIMARY_CONTAINER}" "${SECONDARY_CONTAINER}" "${TERTIARY_CONTAINER}" >/dev/null 2>&1
+    docker kill "${PRIMARY_CONTAINER}" "${SECONDARY_CONTAINER}" "${TERTIARY_CONTAINER}" >/dev/null 2>&1
     sleep 5
     
     # Start primary first
