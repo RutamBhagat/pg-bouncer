@@ -42,6 +42,21 @@ export class FailoverPostgresDialect implements Dialect {
   createQueryCompiler(): QueryCompiler {
     return new PostgresQueryCompiler();
   }
+
+  getConnectionInfo(): { host: string | null; hostDetails: { id: string; status: string }[] } {
+    const currentHostId = this.connectionManager.getCurrentHost();
+    const healthStatus = this.connectionManager.getAllHostsHealth();
+    
+    const currentHost = healthStatus.find((h) => h.id === currentHostId);
+    
+    return {
+      host: currentHostId,
+      hostDetails: currentHost ? [{
+        id: currentHost.id,
+        status: currentHost.status
+      }] : []
+    };
+  }
 }
 
 class FailoverDriver implements Driver {
