@@ -94,7 +94,6 @@ test_single_failure() {
     
     # Ensure all containers are running
     docker start "${PRIMARY_CONTAINER}" "${SECONDARY_CONTAINER}" "${TERTIARY_CONTAINER}" >/dev/null 2>&1 || true
-    sleep 5
     
     local initial_instance=$(get_active_instance)
     echo -e "${YELLOW}Initial active instance: ${initial_instance}${NC}"
@@ -259,9 +258,20 @@ test_recovery() {
     docker kill "${PRIMARY_CONTAINER}" "${SECONDARY_CONTAINER}" >/dev/null 2>&1
     sleep 5
     
-    # Verify tertiary is active
-    local current_active=$(get_active_instance)
-    echo -e "${YELLOW}Current active instance: ${current_active}${NC}"
+    # Verify tertiary is active before starting primary
+    echo -e "${YELLOW}Making request to verify tertiary is active...${NC}"
+    local tertiary_response=$(curl -s "${BASE_URL}/api/test-query")
+    local tertiary_result=$(echo "$tertiary_response" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    if data['status'] == 'success':
+        print(f\"Attempt 1: SUCCESS - Using {data['active_pgbouncer']}\")
+    else:
+        print(f\"Attempt 1: FAILED - {data.get('error', 'Connection failed')}\")
+except Exception as e:
+    print('Attempt 1: FAILED - JSON parse error')")
+    echo "$tertiary_result"
     
     # Start primary
     echo -e "${YELLOW}Starting primary container...${NC}"
