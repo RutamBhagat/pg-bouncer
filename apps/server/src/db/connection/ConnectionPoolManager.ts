@@ -3,7 +3,6 @@ import type { DatabaseConfig, HostHealth } from "@/db/config/types.js";
 import { HostStatus } from "@/db/config/types.js";
 import { PgBouncerHost } from "@/db/connection/PgBouncerHost.js";
 import type { PoolClient } from "pg";
-import pRetry from "p-retry";
 import { dbLogger, failoverLogger } from "@/logger.js";
 import { AlertService, type FailoverEvent } from "@/monitoring/AlertService.js";
 
@@ -29,20 +28,22 @@ export class ConnectionPoolManager {
       throw new Error("All PgBouncer instances are unavailable");
     }
 
-    return pRetry(
-      async (attempt) => {
-        const host =
-          this.strategy === "FAILOVER"
-            ? this.selectHostForFailover(availableHosts, attempt)
-            : this.selectHostForLoadBalance(availableHosts, attempt);
+    const maxAttempts = this.config.failover.maxRetryAttempts;
+    let lastError: Error | null = null;
+    
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const host = this.strategy === "FAILOVER"
+        ? this.selectHostForFailover(availableHosts, attempt)
+        : this.selectHostForLoadBalance(availableHosts, attempt);
 
-        dbLogger.debug({
-          hostId: host.getId(),
-          attempt,
-          strategy: this.strategy,
-          priority: host.getPriority()
-        }, 'Attempting database connection');
+      dbLogger.debug({
+        hostId: host.getId(),
+        attempt,
+        strategy: this.strategy,
+        priority: host.getPriority()
+      }, 'Attempting database connection');
 
+      try {
         const connection = await host.getConnection();
 
         if (!connection) {
@@ -75,23 +76,21 @@ export class ConnectionPoolManager {
         }
 
         this.lastSuccessfulHostId = host.getId();
-
         return connection;
-      },
-      {
-        retries: this.config.failover.maxRetryAttempts,
-        factor: 2,
-        minTimeout: 1000,
-        maxTimeout: 8000,
-        onFailedAttempt: (error) => {
-          dbLogger.warn({
-            attemptNumber: error.attemptNumber,
-            error: error.message,
-            retriesLeft: error.retriesLeft
-          }, 'Database connection attempt failed');
-        },
+        
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        dbLogger.warn({
+          hostId: host.getId(),
+          attempt,
+          error: lastError.message,
+          attemptsLeft: maxAttempts - attempt
+        }, 'Database connection attempt failed');
       }
-    );
+    }
+
+    throw new Error(`Failed to connect to any PgBouncer instance after ${maxAttempts} attempts. Last error: ${lastError?.message}`);
   }
 
   // FAILOVER: (1 → 2 → 3)
