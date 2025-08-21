@@ -94,7 +94,7 @@ export default function HeroSection() {
                     variant="ghost"
                     className="px-5 text-base"
                   >
-                    <Link href="#link">
+                    <Link href="http://localhost:3002">
                       <span className="text-nowrap">View Grafana</span>
                     </Link>
                   </Button>
