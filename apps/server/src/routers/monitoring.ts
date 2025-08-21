@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import { checkDatabaseHealth } from "@/db/health/HealthChecker.js";
 import { databaseConfig } from "@/db/config/database.config.js";
+import { db } from "@/db/client.js";
 import { getDbDialect } from "@/db/client.js";
 import { metricsLogger } from "@/logger.js";
+import { sql } from "kysely";
 
 const monitoring = new Hono();
 
@@ -18,6 +20,12 @@ monitoring.get("/health/detailed", async (c) => {
   const startTime = Date.now();
 
   try {
+    try {
+      await db.selectFrom(sql<{ test: number }>`(SELECT 1 as test)`.as("t")).select("test").execute();
+    } catch (error) {
+      metricsLogger.warn({ error: error instanceof Error ? error.message : "Unknown error" }, "Test query failed during health check");
+    }
+
     const healthChecks = await Promise.allSettled(
       databaseConfig.hosts.map(async (host) => ({
         id: host.id,
@@ -39,7 +47,12 @@ monitoring.get("/health/detailed", async (c) => {
     const isHealthy = healthyCount > 0;
 
     const dialect = getDbDialect();
-    const currentActiveHost = dialect?.getConnectionManager()?.getCurrentHost() || null;
+    let currentActiveHost = dialect?.getConnectionManager()?.getCurrentHost() || null;
+    
+    if (!currentActiveHost && healthyCount > 0) {
+      const healthyHosts = results.filter(r => r.healthy).sort((a, b) => a.priority - b.priority);
+      currentActiveHost = healthyHosts[0]?.id || null;
+    }
 
     const response = {
       status: isHealthy ? "healthy" : "unhealthy",
