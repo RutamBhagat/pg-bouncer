@@ -6,13 +6,11 @@ import { useQuery } from "@tanstack/react-query";
 
 interface HostHealth {
   id: string;
-  status: "healthy" | "unhealthy" | "degraded";
+  healthy: boolean;
   host: string;
   port: number;
   priority: number;
-  lastCheckTime?: string;
-  responseTime?: number;
-  error?: string;
+  error?: string | null;
 }
 
 interface HealthResponse {
@@ -106,9 +104,7 @@ export function usePgBouncerMonitor() {
                           host.priority === 2 ? "secondary" : 
                           host.priority === 3 ? "tertiary" : 
                           `priority-${host.priority}`;
-      const status = host.status === "healthy" ? "healthy" : 
-                    host.status === "degraded" ? "degraded" : 
-                    "unhealthy";
+      const status = host.healthy ? "healthy" : "unhealthy";
       return `${priorityName}:${status}`;
     }).join(" ");
   };
