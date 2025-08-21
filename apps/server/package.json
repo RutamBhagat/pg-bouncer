@@ -33,7 +33,6 @@
     "zod": "^4.0.2"
   },
   "devDependencies": {
-    "@types/k6": "^1.2.0",
     "@types/node": "^22.13.11",
     "prisma": "^6.13.0",
     "prisma-kysely": "^1.8.0",
