@@ -23,27 +23,25 @@ test.get("/test-query", async (c) => {
       .executeTakeFirst();
 
     const dialect = getDbDialect();
-    const connectionInfo = dialect ? dialect.getConnectionInfo() : { host: null, hostDetails: [] };
+    const connectionInfo = dialect ? dialect.getConnectionInfo() : { currentHost: null, allHosts: [] };
     
-    const currentHostDetails = connectionInfo.hostDetails[0];
+    const currentHostDetails = connectionInfo.allHosts.find(h => h.id === connectionInfo.currentHost);
     
     const response = {
       status: "success",
       timestamp: new Date().toISOString(),
       query_result: result?.timestamp || null,
       database: result?.database || null,
-      active_pgbouncer: {
-        id: connectionInfo.host,
-        status: currentHostDetails?.status || "unknown",
-      },
+      active_pgbouncer: connectionInfo.currentHost,
+      all_pgbouncers: connectionInfo.allHosts.sort((a, b) => a.priority - b.priority),
       query_duration_ms: Date.now() - startTime,
     };
 
     testLogger.info(
       {
-        activeHost: connectionInfo.host,
+        activeHost: connectionInfo.currentHost,
         queryDuration: Date.now() - startTime,
-        status: currentHostDetails?.status,
+        allHosts: connectionInfo.allHosts.map(h => `${h.id}:${h.status}`).join(", "),
       },
       "Test query executed successfully"
     );
