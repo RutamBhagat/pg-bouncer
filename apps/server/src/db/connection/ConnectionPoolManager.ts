@@ -6,11 +6,8 @@ import type { PoolClient } from "pg";
 import { dbLogger, failoverLogger } from "@/logger.js";
 import { AlertService, type FailoverEvent } from "@/monitoring/AlertService.js";
 
-type ConnectionStrategy = "FAILOVER" | "LOAD_BALANCE";
-
 export class ConnectionPoolManager {
   private hosts: PgBouncerHost[];
-  private strategy: ConnectionStrategy = "FAILOVER";
   private lastSuccessfulHostId: string | null = null;
   private alertService: AlertService;
 
@@ -32,16 +29,14 @@ export class ConnectionPoolManager {
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      const host =
-        this.strategy === "FAILOVER"
-          ? this.selectHostForFailover(availableHosts, attempt)
-          : this.selectHostForLoadBalance(availableHosts, attempt);
+      const hostIndex = (attempt - 1) % availableHosts.length;
+      const host = availableHosts[hostIndex];
 
       dbLogger.debug(
         {
           hostId: host.getId(),
           attempt,
-          strategy: this.strategy,
+          hostIndex,
           priority: host.getPriority(),
         },
         "Attempting database connection"
@@ -110,24 +105,6 @@ export class ConnectionPoolManager {
     );
   }
 
-  // FAILOVER: (1 → 2 → 3)
-  private selectHostForFailover(
-    availableHosts: PgBouncerHost[],
-    attempt: number
-  ): PgBouncerHost {
-    const index = Math.min(attempt - 1, availableHosts.length - 1);
-    return availableHosts[index];
-  }
-
-  // LOAD_BALANCE: Cycle through hosts
-  private selectHostForLoadBalance(
-    availableHosts: PgBouncerHost[],
-    attempt: number
-  ): PgBouncerHost {
-    const index = (attempt - 1) % availableHosts.length;
-    return availableHosts[index];
-  }
-
   private getAvailableHosts(): PgBouncerHost[] {
     return this.hosts.filter((host) => {
       const health = host.getHealth();
@@ -136,11 +113,6 @@ export class ConnectionPoolManager {
         health.status === HostStatus.DEGRADED
       );
     });
-  }
-
-  setStrategy(strategy: ConnectionStrategy): void {
-    this.strategy = strategy;
-    dbLogger.info({ strategy }, "Connection strategy changed");
   }
 
   getAllHostsHealth(): HostHealth[] {
