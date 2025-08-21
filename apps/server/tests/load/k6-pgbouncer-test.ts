@@ -1,7 +1,23 @@
-import http from 'k6/http';
+import http, { type RefinedResponse } from 'k6/http';
 import { check, sleep, group } from 'k6';
 import { Rate, Trend, Counter, Gauge } from 'k6/metrics';
 import type { Options } from 'k6/options';
+
+declare const __ENV: Record<string, string>;
+
+interface TestSummaryData {
+  state: {
+    testRunDurationMs: number;
+  };
+  metrics: {
+    iterations: { values: { count: number } };
+    vus_max: { values: { value: number } };
+    http_req_duration: { values: { 'p(95)': number; avg: number } };
+    errors?: { values: { rate: number } };
+    failover_detected?: { values: { count: number } };
+    failover_duration?: { values: { avg: number } };
+  };
+}
 
 const errorRate = new Rate('errors');
 const connectionPoolSaturation = new Gauge('connection_pool_saturation');
@@ -38,23 +54,25 @@ export default function () {
     queryDuration.add(duration);
 
     const success = check(response, {
-      'status is 200': (r) => r.status === 200,
-      'response has data': (r) => {
+      'status is 200': (r: RefinedResponse<'text'>) => r.status === 200,
+      'response has data': (r: RefinedResponse<'text'>) => {
         try {
-          const body = JSON.parse(r.body);
+          const bodyText = typeof r.body === 'string' ? r.body : '';
+          const body = JSON.parse(bodyText);
           return body.data !== undefined;
         } catch {
           return false;
         }
       },
-      'response time < 500ms': (r) => r.timings.duration < 500,
+      'response time < 500ms': (r: RefinedResponse<'text'>) => r.timings.duration < 500,
     });
 
     errorRate.add(!success);
 
     if (success) {
       try {
-        const body = JSON.parse(response.body);
+        const bodyText = typeof response.body === 'string' ? response.body : '';
+        const body = JSON.parse(bodyText || '{}');
         const currentInstance = body.activeInstance;
         
         if (lastActiveInstance && lastActiveInstance !== currentInstance) {
@@ -83,7 +101,7 @@ export default function () {
   sleep(Math.random() * 0.5 + 0.1);
 }
 
-export function handleSummary(data) {
+export function handleSummary(data: TestSummaryData) {
   const summary = {
     timestamp: new Date().toISOString(),
     duration: data.state.testRunDurationMs,
@@ -97,12 +115,12 @@ export function handleSummary(data) {
   };
 
   return {
-    'stdout': textSummary(data, { indent: ' ', enableColors: true }),
+    'stdout': textSummary(data, { indent: ' ' }),
     'apps/server/tests/results/k6-summary.json': JSON.stringify(summary, null, 2),
   };
 }
 
-function textSummary(data, options) {
+function textSummary(data: TestSummaryData, options: { indent: string }) {
   const indent = options.indent || '';
   const summary = [];
   
