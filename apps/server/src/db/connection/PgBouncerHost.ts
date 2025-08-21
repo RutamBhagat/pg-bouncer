@@ -18,7 +18,7 @@ export class PgBouncerHost {
       ssl: config.ssl,
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 2000,
     });
 
     this.pool.on('error', (err) => {
@@ -26,10 +26,10 @@ export class PgBouncerHost {
     });
 
     this.circuitBreaker = new CircuitBreaker(async () => this.pool.connect(), {
-      timeout: 5000, // 5s timeout per connection attempt
+      timeout: 2000, // 2s timeout per connection attempt
       errorThresholdPercentage: 50, // Open circuit at 50% failure rate
       resetTimeout: 30000, // Try again after 30s
-      volumeThreshold: 5, // Need at least 5 requests to calculate percentage
+      volumeThreshold: 2, // Need at least 2 requests to calculate percentage
     });
 
     this.health = {
