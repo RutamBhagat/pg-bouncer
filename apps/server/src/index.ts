@@ -27,6 +27,7 @@ app.get("/", (c) => {
 });
 
 app.route("/monitoring", monitoring);
+app.route("/api", test);
 
 appLogger.info("Starting PgBouncer failover application");
 await warmupConnections(databaseConfig.hosts);
