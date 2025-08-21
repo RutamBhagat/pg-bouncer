@@ -21,7 +21,7 @@ export class PgBouncerHost {
       connectionTimeoutMillis: 5000,
     });
 
-    this.pool.on('error', (err) => {
+    this.pool.on("error", (err) => {
       console.error(`Pool error for ${config.id}:`, err.message);
     });
 
