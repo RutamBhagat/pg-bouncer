@@ -9,9 +9,9 @@ BASE_URL="${BASE_URL:-http://localhost:3000}"
 SCENARIO="${1:-single}"
 
 # Container names
-PRIMARY_CONTAINER="pg-bouncer-pgbouncer-primary-1"
-SECONDARY_CONTAINER="pg-bouncer-pgbouncer-secondary-1"
-TERTIARY_CONTAINER="pg-bouncer-pgbouncer-tertiary-1"
+PRIMARY_CONTAINER="pgbouncer-primary"
+SECONDARY_CONTAINER="pgbouncer-secondary"
+TERTIARY_CONTAINER="pgbouncer-tertiary"
 
 # Colors for output
 RED='\033[0;31m'
