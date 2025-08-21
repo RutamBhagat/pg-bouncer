@@ -1,6 +1,0 @@
-# This directory stores test results
-# Results are generated during test execution and include:
-# - k6 load test outputs (JSON and HTML reports)
-# - Chaos testing metrics and reports
-# - MTTR monitoring logs
-# - Integrated test reports
