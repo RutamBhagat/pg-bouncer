@@ -1,34 +1,29 @@
 import { Button } from "@/components/ui/button";
-import { InfiniteSlider } from "@/components/ui/infinite-slider";
-import Link from "next/link";
-import { ProgressiveBlur } from "@/components/ui/progressive-blur";
-import React from "react";
 import JSONPretty from "react-json-pretty";
+import Link from "next/link";
+import React from "react";
 import { usePgBouncerMonitor } from "@/hooks/use-pgbouncer-monitor";
 
 export default function HeroSection() {
-  const { 
-    currentPgBouncer, 
-    formattedHostsStatus, 
-    responses, 
+  const {
+    currentPgBouncer,
+    formattedHostsStatus,
+    responses,
     isMonitoring,
-    toggleMonitoring 
+    toggleMonitoring,
   } = usePgBouncerMonitor();
-
-  React.useEffect(() => {
-    // Auto-start monitoring when component mounts
-    if (!isMonitoring) {
-      toggleMonitoring();
-    }
-  }, []);
 
   const getCurrentInstanceName = () => {
     if (!currentPgBouncer) return "No Active Connection";
-    
-    const priorityName = currentPgBouncer.priority === 1 ? "Primary" : 
-                        currentPgBouncer.priority === 2 ? "Secondary" : 
-                        currentPgBouncer.priority === 3 ? "Tertiary" : 
-                        `Priority ${currentPgBouncer.priority}`;
+
+    const priorityName =
+      currentPgBouncer.priority === 1
+        ? "Primary"
+        : currentPgBouncer.priority === 2
+        ? "Secondary"
+        : currentPgBouncer.priority === 3
+        ? "Tertiary"
+        : `Priority ${currentPgBouncer.priority}`;
     return `Connected to ${priorityName} PgBouncer`;
   };
 
@@ -49,9 +44,9 @@ export default function HeroSection() {
                 </p>
 
                 <div className="mt-12 flex flex-col items-center justify-center gap-2 sm:flex-row lg:justify-start">
-                  <Button 
+                  <Button
                     onClick={toggleMonitoring}
-                    size="lg" 
+                    size="lg"
                     className="px-5 text-base"
                     variant={isMonitoring ? "destructive" : "default"}
                   >
@@ -72,28 +67,33 @@ export default function HeroSection() {
                   </Button>
                 </div>
               </div>
-              
+
               {/* Right side - Latest JSON Response */}
               <div className="mx-auto mt-12 max-w-lg lg:absolute lg:right-0 lg:top-0 lg:mt-16 lg:w-1/2 lg:max-w-none">
                 <div className="bg-card/50 border rounded-xl p-6 backdrop-blur-sm">
-                  <h3 className="text-lg font-semibold mb-4">Latest Response</h3>
+                  <h3 className="text-lg font-semibold mb-4">
+                    Latest Response
+                  </h3>
                   {latestResponse ? (
                     <div className="bg-background/50 rounded-lg p-4 text-xs overflow-auto max-h-96">
-                      <JSONPretty 
+                      <JSONPretty
                         data={latestResponse.data}
                         theme={{
-                          main: 'line-height:1.3;color:hsl(var(--foreground));background:transparent;overflow:auto;',
-                          error: 'line-height:1.3;color:hsl(var(--destructive));background:transparent;overflow:auto;',
-                          key: 'color:hsl(var(--primary));',
-                          string: 'color:hsl(var(--muted-foreground));',
-                          value: 'color:hsl(var(--foreground));',
-                          boolean: 'color:hsl(var(--accent-foreground));',
+                          main: "line-height:1.3;color:hsl(var(--foreground));background:transparent;overflow:auto;",
+                          error:
+                            "line-height:1.3;color:hsl(var(--destructive));background:transparent;overflow:auto;",
+                          key: "color:hsl(var(--primary));",
+                          string: "color:hsl(var(--muted-foreground));",
+                          value: "color:hsl(var(--foreground));",
+                          boolean: "color:hsl(var(--accent-foreground));",
                         }}
                       />
                     </div>
                   ) : (
                     <div className="text-center text-muted-foreground py-8">
-                      {isMonitoring ? "Waiting for response..." : "Start monitoring to see responses"}
+                      {isMonitoring
+                        ? "Waiting for response..."
+                        : "Start monitoring to see responses"}
                     </div>
                   )}
                 </div>
