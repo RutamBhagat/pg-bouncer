@@ -1,8 +1,4 @@
-import type {
-  DatabaseConfig,
-  FailoverConfig,
-  PgBouncerConfig,
-} from "@/db/config/types.js";
+import type { DatabaseConfig, PgBouncerConfig } from "@/db/config/types.js";
 
 interface EnvConfig {
   POSTGRES_HOST: string;
@@ -66,9 +62,9 @@ export const databaseConfig: DatabaseConfig = {
   },
   failover: {
     maxRetryAttempts: 3,
-    connectionTimeoutMs: 2000,
+    connectionTimeoutMs: 5000,
     queryTimeoutMs: 30000,
-    circuitBreakerFailureThreshold: 2,
+    circuitBreakerFailureThreshold: 5,
     circuitBreakerRecoveryTimeoutMs: 30000,
     healthCheckIntervalMs: 10000,
   },
