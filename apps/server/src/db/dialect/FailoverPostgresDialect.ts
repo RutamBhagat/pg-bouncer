@@ -47,18 +47,22 @@ export class FailoverPostgresDialect implements Dialect {
 
   getConnectionInfo(): { 
     currentHost: string | null; 
-    allHosts: { id: string; status: string; consecutiveFailures: number }[] 
+    allHosts: { id: string; status: string; priority: number; consecutiveFailures: number }[] 
   } {
     const currentHostId = this.connectionManager.getCurrentHost();
     const healthStatus = this.connectionManager.getAllHostsHealth();
     
     return {
       currentHost: currentHostId,
-      allHosts: healthStatus.map((h) => ({
-        id: h.id,
-        status: h.status,
-        consecutiveFailures: h.consecutiveFailures
-      }))
+      allHosts: healthStatus.map((h) => {
+        const hostConfig = this.config.hosts.find(host => host.id === h.id);
+        return {
+          id: h.id,
+          status: h.status,
+          priority: hostConfig?.priority || 999,
+          consecutiveFailures: h.consecutiveFailures
+        };
+      })
     };
   }
 }
