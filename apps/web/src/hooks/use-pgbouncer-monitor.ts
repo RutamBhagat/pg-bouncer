@@ -19,6 +19,7 @@ interface HealthResponse {
   status: "healthy" | "unhealthy";
   timestamp: string;
   checkDurationMs: number;
+  currentActiveHost: string | null;
   summary: {
     healthy: number;
     total: number;
@@ -90,14 +91,26 @@ export function usePgBouncerMonitor() {
   }, [isMonitoring, startMonitoring, stopMonitoring]);
 
   const getCurrentPgBouncer = () => {
-    if (!data?.hosts) return null;
+    if (!data?.hosts || !data.currentActiveHost) return null;
+    
+    return data.hosts.find(host => host.id === data.currentActiveHost) || null;
+  };
 
-    const healthyHosts = data.hosts.filter((host) => host.status === "healthy");
-    if (healthyHosts.length === 0) return null;
-
-    return healthyHosts.reduce((prev, current) =>
-      prev.priority < current.priority ? prev : current
-    );
+  const getFormattedHostsStatus = () => {
+    if (!data?.hosts) return "No data available";
+    
+    const sortedHosts = [...data.hosts].sort((a, b) => a.priority - b.priority);
+    
+    return sortedHosts.map(host => {
+      const priorityName = host.priority === 1 ? "primary" : 
+                          host.priority === 2 ? "secondary" : 
+                          host.priority === 3 ? "tertiary" : 
+                          `priority-${host.priority}`;
+      const status = host.status === "healthy" ? "healthy" : 
+                    host.status === "degraded" ? "degraded" : 
+                    "unhealthy";
+      return `${priorityName}:${status}`;
+    }).join(" ");
   };
 
   return {
@@ -113,5 +126,6 @@ export function usePgBouncerMonitor() {
     refetch,
 
     currentPgBouncer: getCurrentPgBouncer(),
+    formattedHostsStatus: getFormattedHostsStatus(),
   };
 }
