@@ -102,8 +102,15 @@ export class PgBouncerHost {
     }
   }
 
-  getHealth(): HostHealth {
-    return { ...this.health };
+  getHealth(): HostHealth & { circuitState: string; stats?: any } {
+    const circuitState = this.circuitBreaker.opened ? 'open' : 
+                        this.circuitBreaker.closed ? 'closed' : 'halfOpen';
+    
+    return { 
+      ...this.health,
+      circuitState,
+      stats: this.circuitBreaker.stats
+    };
   }
 
   getId(): string {
