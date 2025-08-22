@@ -122,58 +122,6 @@ export class AlertService {
   }
 
 
-  private async sendToChannel(
-    channel: AlertChannel,
-    message: string
-  ): Promise<void> {
-    switch (channel.name) {
-      case "slack":
-        if (!channel.webhook) {
-          failoverLogger.error({ channelName: channel.name }, "Slack webhook URL not configured");
-          return;
-        }
-        await this.sendToSlack(channel.webhook, message);
-        break;
-      default:
-        failoverLogger.warn(
-          { channelName: channel.name },
-          "Unknown alert channel"
-        );
-    }
-  }
-
-  private async sendToSlack(webhook: string, message: string): Promise<void> {
-    try {
-      const response = await fetch(webhook, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          text: message,
-          username: "PgBouncer Monitor",
-          icon_emoji: ":warning:",
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `Slack API error: ${response.status} ${response.statusText}`
-        );
-      }
-
-      failoverLogger.info("Slack alert sent successfully");
-    } catch (error) {
-      failoverLogger.error(
-        {
-          error: error instanceof Error ? error.message : "Unknown error",
-          webhook: webhook.substring(0, 50) + "...", // Only log part of webhook for security
-        },
-        "Failed to send Slack alert"
-      );
-      throw error;
-    }
-  }
 
   async sendRecoveryAlert(event: RecoveryEvent): Promise<void> {
     const now = new Date();
