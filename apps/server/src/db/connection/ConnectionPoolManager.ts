@@ -4,17 +4,13 @@ import { HostStatus } from "@/db/config/types.js";
 import { PgBouncerHost } from "@/db/connection/PgBouncerHost.js";
 import type { PoolClient } from "pg";
 import { dbLogger, failoverLogger } from "@/logger.js";
-import { AlertService } from "@/monitoring/AlertService.js";
-
 export class ConnectionPoolManager {
   private hosts: PgBouncerHost[];
   private lastSuccessfulHostId: string | null = null;
-  private alertService: AlertService;
 
   constructor(private readonly config: DatabaseConfig) {
-    this.alertService = new AlertService();
     this.hosts = config.hosts
-      .map((hostConfig) => new PgBouncerHost(hostConfig, this.alertService))
+      .map((hostConfig) => new PgBouncerHost(hostConfig))
       .sort((a, b) => a.getPriority() - b.getPriority());
   }
 
