@@ -47,11 +47,16 @@ export default function HeroSection() {
                                           host.priority === 3 ? "Tertiary" : 
                                           `Priority ${host.priority}`;
                       const isActive = data.currentActiveHost === host.id;
+                      const circuitOpen = host.circuitState === 'open';
+                      const circuitHalfOpen = host.circuitState === 'halfOpen';
+                      
                       return (
                         <div
                           key={host.id}
                           className={`px-3 py-1 rounded-full text-sm font-medium border transition-all ${
-                            host.healthy
+                            circuitOpen
+                              ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
+                              : host.healthy
                               ? isActive
                                 ? "bg-green-500/20 text-green-400 border-green-500/30 ring-2 ring-green-500/50"
                                 : "bg-green-500/10 text-green-400 border-green-500/20"
@@ -61,11 +66,18 @@ export default function HeroSection() {
                           <div className="flex items-center gap-2">
                             <div
                               className={`w-2 h-2 rounded-full ${
+                                circuitOpen ? "bg-orange-400" :
+                                circuitHalfOpen ? "bg-yellow-400" :
                                 host.healthy ? "bg-green-400" : "bg-red-400"
                               }`}
                             />
                             {priorityName}
                             {isActive && <span className="text-xs">(Active)</span>}
+                            {circuitOpen && <span className="text-xs">(Circuit Open)</span>}
+                            {circuitHalfOpen && <span className="text-xs">(Half-Open)</span>}
+                            {host.consecutiveFailures > 0 && (
+                              <span className="text-xs">({host.consecutiveFailures} fails)</span>
+                            )}
                           </div>
                         </div>
                       );
