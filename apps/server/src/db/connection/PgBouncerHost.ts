@@ -2,7 +2,6 @@ import { Pool, type PoolClient } from "pg";
 import CircuitBreaker from "opossum";
 import type { PgBouncerConfig, HostHealth } from "@/db/config/types.js";
 import { HostStatus } from "@/db/config/types.js";
-import { AlertService, type RecoveryEvent } from "@/monitoring/AlertService.js";
 import { failoverLogger } from "@/logger.js";
 
 export class PgBouncerHost {
@@ -10,10 +9,8 @@ export class PgBouncerHost {
   private circuitBreaker: CircuitBreaker<[], PoolClient>;
   private health: HostHealth;
   private previousStatus: HostStatus;
-  private alertService?: AlertService;
 
-  constructor(private readonly config: PgBouncerConfig, alertService?: AlertService) {
-    this.alertService = alertService;
+  constructor(private readonly config: PgBouncerConfig) {
     this.pool = new Pool({
       host: config.host,
       port: config.port,
@@ -61,32 +58,19 @@ export class PgBouncerHost {
     });
 
     this.circuitBreaker.on("close", () => {
-      const wasInRecovery = this.previousStatus === HostStatus.DEGRADED;
       this.health.status = HostStatus.HEALTHY;
       this.health.consecutiveFailures = 0;
       this.health.lastSuccessAt = new Date();
       this.previousStatus = HostStatus.HEALTHY;
 
-      if (wasInRecovery && this.alertService) {
-        const recoveryEvent: RecoveryEvent = {
+      failoverLogger.info(
+        {
           hostId: this.config.id,
           hostPriority: this.config.priority,
           timestamp: new Date().toISOString(),
-          event: "recovery_detected",
-        };
-
-        failoverLogger.info(
-          recoveryEvent,
-          "PgBouncer instance recovered - circuit breaker closed"
-        );
-
-        this.alertService.sendRecoveryAlert(recoveryEvent).catch((error) => {
-          failoverLogger.error(
-            { error: error.message, hostId: this.config.id },
-            "Failed to send recovery alert"
-          );
-        });
-      }
+        },
+        "PgBouncer instance recovered - circuit breaker closed"
+      );
     });
   }
 
