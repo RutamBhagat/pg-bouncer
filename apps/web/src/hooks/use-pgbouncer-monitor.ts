@@ -10,6 +10,9 @@ interface HostHealth {
   host: string;
   port: number;
   priority: number;
+  status: string;
+  circuitState: string;
+  consecutiveFailures: number;
   error?: string | null;
 }
 
