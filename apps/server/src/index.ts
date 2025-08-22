@@ -11,7 +11,6 @@ import { serve } from "@hono/node-server";
 import { warmupConnections } from "@/db/health/HealthChecker.js";
 import { HealthMonitorService } from "@/monitoring/HealthMonitorService.js";
 import { AlertService } from "@/monitoring/AlertService.js";
-import { stateStore } from "@/monitoring/StateStore.js";
 
 const appLogger = createLogger("app");
 
@@ -38,8 +37,7 @@ appLogger.info("Starting PgBouncer failover application");
 const alertService = new AlertService();
 const healthMonitorService = new HealthMonitorService(
   databaseConfig.hosts,
-  alertService,
-  stateStore
+  alertService
 );
 
 // Warm up database connections
