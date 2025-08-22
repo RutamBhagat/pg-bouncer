@@ -9,6 +9,7 @@ export default function HeroSection() {
     currentPgBouncer,
     responses,
     data,
+    error,
     isMonitoring,
     toggleMonitoring,
   } = usePgBouncerMonitor();
