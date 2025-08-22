@@ -2,15 +2,15 @@ import "dotenv/config";
 
 import { createLogger, logger } from "@/logger.js";
 
+import { AlertService } from "@/monitoring/AlertService.js";
+import { HealthMonitorService } from "@/monitoring/HealthMonitorService.js";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { databaseConfig } from "@/db/config/database.config.js";
 import { monitoring } from "@/routers/monitoring.js";
-import { test } from "@/routers/test.js";
 import { serve } from "@hono/node-server";
+import { test } from "@/routers/test.js";
 import { warmupConnections } from "@/db/health/HealthChecker.js";
-import { HealthMonitorService } from "@/monitoring/HealthMonitorService.js";
-import { AlertService } from "@/monitoring/AlertService.js";
 
 const appLogger = createLogger("app");
 
@@ -33,17 +33,14 @@ app.route("/api", test);
 
 appLogger.info("Starting PgBouncer failover application");
 
-// Initialize monitoring services
 const alertService = new AlertService();
 const healthMonitorService = new HealthMonitorService(
   databaseConfig.hosts,
   alertService
 );
 
-// Warm up database connections
 await warmupConnections(databaseConfig.hosts);
 
-// Start health monitoring
 await healthMonitorService.start();
 
 appLogger.info("Health monitoring started");
@@ -66,7 +63,6 @@ serve(
   }
 );
 
-// Graceful shutdown
 process.on("SIGINT", async () => {
   appLogger.info("Received SIGINT, shutting down gracefully");
   
