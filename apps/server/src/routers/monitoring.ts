@@ -4,6 +4,7 @@ import { databaseConfig } from "@/db/config/database.config.js";
 import { db } from "@/db/client.js";
 import { getDbDialect } from "@/db/client.js";
 import { metricsLogger } from "@/logger.js";
+import { randomUUID } from "crypto";
 import { sql } from "kysely";
 
 const monitoring = new Hono();
@@ -18,16 +19,15 @@ monitoring.get("/health", (c) => {
 
 monitoring.get("/health/detailed", async (c) => {
   const startTime = Date.now();
+  const correlationId = randomUUID();
 
   try {
-    // This query goes through the circuit breaker and will trigger failover after failures
     await db.selectFrom(sql<{ test: number }>`(SELECT 1 as test)`.as("t")).select("test").execute();
 
     const dialect = getDbDialect();
     const connectionManager = dialect?.getConnectionManager();
     const currentActiveHost = connectionManager?.getCurrentHost() || null;
     
-    // Get circuit breaker states from connection manager
     const hostsHealth = connectionManager?.getAllHostsHealth() || [];
     
     const results = hostsHealth.map((health) => {
@@ -75,14 +75,15 @@ monitoring.get("/health/detailed", async (c) => {
 
     return c.json(response);
   } catch (error) {
-    // Don't catch the error - let it propagate to trigger circuit breaker
     const dialect = getDbDialect();
     const connectionManager = dialect?.getConnectionManager();
     const currentActiveHost = connectionManager?.getCurrentHost() || null;
 
     metricsLogger.error(
       {
+        correlationId,
         error: error instanceof Error ? error.message : "Unknown error",
+        errorStack: error instanceof Error ? error.stack : undefined,
         activeHost: currentActiveHost,
         checkDuration: Date.now() - startTime,
       },
@@ -94,7 +95,8 @@ monitoring.get("/health/detailed", async (c) => {
         status: "error",
         timestamp: new Date().toISOString(),
         currentActiveHost,
-        error: error instanceof Error ? error.message : "Database connection failed",
+        error: "Database connection failed",
+        correlationId,
         checkDurationMs: Date.now() - startTime,
       },
       500
