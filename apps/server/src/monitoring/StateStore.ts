@@ -1,4 +1,4 @@
-import type { HealthSnapshot, InstanceState } from "@/monitoring/HealthMonitorService.js";
+import type { InstanceState } from "@/monitoring/HealthMonitorService.js";
 
 import fs from "fs/promises";
 import { healthLogger } from "@/logger.js";
