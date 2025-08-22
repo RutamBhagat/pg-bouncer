@@ -64,10 +64,23 @@ export class AlertService {
     
     switch (notification.type) {
       case NotificationType.INSTANCE_RECOVERED:
-        return `PgBouncer Instance Recovered\\n\\nHost: ${notification.hostId} (${priorityName})\\nTime: ${notification.timestamp}${notification.downtime ? `\\nDowntime: ${this.formatDuration(notification.downtime)}` : ''}\\nTotal Recoveries: ${this.recoveryCount}\\n\\nThe PgBouncer instance has successfully recovered and is now accepting connections again.`;
+        return `PgBouncer Instance Recovered
+
+Host: ${notification.hostId} (${priorityName})
+Time: ${notification.timestamp}${notification.downtime ? `
+Downtime: ${this.formatDuration(notification.downtime)}` : ''}
+Total Recoveries: ${this.recoveryCount}
+
+The PgBouncer instance has successfully recovered and is now accepting connections again.`;
 
       case NotificationType.INSTANCE_DOWN:
-        return `PgBouncer Instance Down\\n\\nHost: ${notification.hostId} (${priorityName})\\nTime: ${notification.timestamp}\\nTotal Failures: ${this.downCount}\\n\\nThe PgBouncer instance is no longer responding to health checks. This may trigger automatic failover to backup instances.`;
+        return `PgBouncer Instance Down
+
+Host: ${notification.hostId} (${priorityName})
+Time: ${notification.timestamp}
+Total Failures: ${this.downCount}
+
+The PgBouncer instance is no longer responding to health checks. This may trigger automatic failover to backup instances.`;
 
       default:
         return notification.message;
