@@ -1,4 +1,9 @@
-import { AlertService, NotificationType, type InstanceNotification, type CriticalNotification } from "@/monitoring/AlertService.js";
+import {
+  AlertService,
+  NotificationType,
+  type InstanceNotification,
+  type CriticalNotification,
+} from "@/monitoring/AlertService.js";
 import { checkDatabaseHealth } from "@/db/health/HealthChecker.js";
 import type { PgBouncerConfig } from "@/db/config/types.js";
 import { HostStatus } from "@/db/config/types.js";
@@ -34,6 +39,7 @@ export class HealthMonitorService {
   private isRunning = false;
   private monitoringInterval: NodeJS.Timeout | null = null;
   private readonly CHECK_INTERVAL = 5000; // 5 seconds
+  private hasSentCriticalNotification = false;
 
   constructor(
     private readonly hosts: readonly PgBouncerConfig[],
@@ -59,9 +65,9 @@ export class HealthMonitorService {
     }
 
     healthLogger.info(
-      { 
+      {
         hostCount: this.hosts.length,
-        hosts: this.hosts.map(h => h.id) 
+        hosts: this.hosts.map((h) => h.id),
       },
       "HealthMonitorService initialized"
     );
@@ -117,20 +123,20 @@ export class HealthMonitorService {
   private async loadPersistedState(): Promise<void> {
     try {
       const persistedData = await this.stateStore.loadState();
-      
+
       if (persistedData) {
         // Compare persisted state with current health check
         healthLogger.info(
-          { 
+          {
             persistedStates: persistedData.states.size,
-            lastActiveHost: persistedData.lastActiveHost 
+            lastActiveHost: persistedData.lastActiveHost,
           },
           "Loading persisted state"
         );
 
         // Check for state differences and send notifications
         await this.checkStateChangesOnStartup(persistedData.states);
-        
+
         // Use persisted states as starting point (but will be updated by first health check)
         for (const [id, persistedState] of persistedData.states) {
           if (this.currentStates.has(id)) {
@@ -154,7 +160,9 @@ export class HealthMonitorService {
     }
   }
 
-  private async checkStateChangesOnStartup(persistedStates: Map<string, InstanceState>): Promise<void> {
+  private async checkStateChangesOnStartup(
+    persistedStates: Map<string, InstanceState>
+  ): Promise<void> {
     // Perform quick health check to compare with persisted state
     const quickHealthChecks = await Promise.allSettled(
       this.hosts.map(async (host) => ({
@@ -186,8 +194,8 @@ export class HealthMonitorService {
             "Instance recovered while server was offline"
           );
           // Calculate approximate downtime if we have failure time
-          const downtime = persistedState.failedAt 
-            ? Date.now() - persistedState.failedAt.getTime() 
+          const downtime = persistedState.failedAt
+            ? Date.now() - persistedState.failedAt.getTime()
             : undefined;
           await this.sendInstanceRecoveredNotification(host, downtime);
         }
@@ -216,7 +224,8 @@ export class HealthMonitorService {
 
       if (!currentState) continue;
 
-      const isHealthy = result.status === "fulfilled" ? result.value.healthy : false;
+      const isHealthy =
+        result.status === "fulfilled" ? result.value.healthy : false;
       const now = new Date();
 
       const newState: InstanceState = {
@@ -224,8 +233,12 @@ export class HealthMonitorService {
         isHealthy,
         status: isHealthy ? HostStatus.HEALTHY : HostStatus.FAILED,
         lastCheckTime: now,
-        consecutiveFailures: isHealthy ? 0 : currentState.consecutiveFailures + 1,
-        consecutiveSuccesses: isHealthy ? currentState.consecutiveSuccesses + 1 : 0,
+        consecutiveFailures: isHealthy
+          ? 0
+          : currentState.consecutiveFailures + 1,
+        consecutiveSuccesses: isHealthy
+          ? currentState.consecutiveSuccesses + 1
+          : 0,
       };
 
       if (currentState.isHealthy !== isHealthy) {
@@ -272,7 +285,9 @@ export class HealthMonitorService {
   }
 
   private createSnapshot(): HealthSnapshot {
-    const healthyHosts = Array.from(this.currentStates.values()).filter(s => s.isHealthy);
+    const healthyHosts = Array.from(this.currentStates.values()).filter(
+      (s) => s.isHealthy
+    );
     const activeHost = this.determineActiveHost(healthyHosts);
 
     return {
@@ -287,17 +302,31 @@ export class HealthMonitorService {
   private determineActiveHost(healthyHosts: InstanceState[]): string | null {
     if (healthyHosts.length === 0) return null;
 
-    return healthyHosts
-      .sort((a, b) => a.priority - b.priority)[0].id;
+    return healthyHosts.sort((a, b) => a.priority - b.priority)[0].id;
   }
 
-  private async analyzeSystemState(currentSnapshot: HealthSnapshot): Promise<void> {
+  private async analyzeSystemState(
+    currentSnapshot: HealthSnapshot
+  ): Promise<void> {
     if (currentSnapshot.healthyCount === 0 && currentSnapshot.totalCount > 0) {
-      await this.sendCriticalNotification();
+      if (!this.hasSentCriticalNotification) {
+        await this.sendCriticalNotification();
+        this.hasSentCriticalNotification = true;
+      }
       return;
     }
 
-    if (this.previousSnapshot && this.previousSnapshot.activeHost !== currentSnapshot.activeHost) {
+    if (currentSnapshot.healthyCount > 0 && this.hasSentCriticalNotification) {
+      this.hasSentCriticalNotification = false;
+      healthLogger.info(
+        "System recovered from critical state - ready to send critical notifications again"
+      );
+    }
+
+    if (
+      this.previousSnapshot &&
+      this.previousSnapshot.activeHost !== currentSnapshot.activeHost
+    ) {
       healthLogger.info(
         {
           fromHost: this.previousSnapshot.activeHost,
@@ -306,15 +335,11 @@ export class HealthMonitorService {
         "Active host changed - circuit breaker triggered automatic failover"
       );
     }
-
-    if (currentSnapshot.healthyCount > 0 && currentSnapshot.healthyCount < currentSnapshot.totalCount) {
-      if (this.previousSnapshot && this.previousSnapshot.healthyCount >= this.previousSnapshot.totalCount) {
-        await this.sendDegradedServiceNotification();
-      }
-    }
   }
 
-  private async sendInstanceDownNotification(host: PgBouncerConfig): Promise<void> {
+  private async sendInstanceDownNotification(
+    host: PgBouncerConfig
+  ): Promise<void> {
     const notification: InstanceNotification = {
       type: NotificationType.INSTANCE_DOWN,
       hostId: host.id,
@@ -335,7 +360,10 @@ export class HealthMonitorService {
     );
   }
 
-  private async sendInstanceRecoveredNotification(host: PgBouncerConfig, downtime?: number): Promise<void> {
+  private async sendInstanceRecoveredNotification(
+    host: PgBouncerConfig,
+    downtime?: number
+  ): Promise<void> {
     const notification: InstanceNotification = {
       type: NotificationType.INSTANCE_RECOVERED,
       hostId: host.id,
@@ -356,39 +384,6 @@ export class HealthMonitorService {
       },
       "Instance recovery notification sent"
     );
-  }
-
-
-  private async sendDegradedServiceNotification(): Promise<void> {
-    const unhealthyHosts = Array.from(this.currentStates.values())
-      .filter(state => !state.isHealthy);
-
-    const primaryUnhealthyHost = unhealthyHosts
-      .sort((a, b) => a.priority - b.priority)[0];
-
-    if (primaryUnhealthyHost) {
-      const hostConfig = this.hosts.find(h => h.id === primaryUnhealthyHost.id);
-      if (hostConfig) {
-        const notification: InstanceNotification = {
-          type: NotificationType.DEGRADED_SERVICE,
-          hostId: primaryUnhealthyHost.id,
-          hostPriority: primaryUnhealthyHost.priority,
-          timestamp: new Date().toISOString(),
-          message: `Service degraded - ${primaryUnhealthyHost.id} unavailable`,
-        };
-
-        await this.alertService.sendInstanceNotification(notification);
-
-        healthLogger.warn(
-          {
-            healthyCount: this.previousSnapshot?.healthyCount,
-            totalCount: this.previousSnapshot?.totalCount,
-            affectedHosts: unhealthyHosts.map(h => h.id),
-          },
-          "Degraded service notification sent"
-        );
-      }
-    }
   }
 
   private async sendCriticalNotification(): Promise<void> {
@@ -436,15 +431,21 @@ export class HealthMonitorService {
     lastCheckTime: string | null;
   } {
     const lastCheckTime = Math.max(
-      ...Array.from(this.currentStates.values()).map(s => s.lastCheckTime.getTime())
+      ...Array.from(this.currentStates.values()).map((s) =>
+        s.lastCheckTime.getTime()
+      )
     );
 
     return {
       isRunning: this.isRunning,
       totalHosts: this.hosts.length,
-      healthyHosts: Array.from(this.currentStates.values()).filter(s => s.isHealthy).length,
+      healthyHosts: Array.from(this.currentStates.values()).filter(
+        (s) => s.isHealthy
+      ).length,
       checkInterval: this.CHECK_INTERVAL,
-      lastCheckTime: lastCheckTime ? new Date(lastCheckTime).toISOString() : null,
+      lastCheckTime: lastCheckTime
+        ? new Date(lastCheckTime).toISOString()
+        : null,
     };
   }
 }
