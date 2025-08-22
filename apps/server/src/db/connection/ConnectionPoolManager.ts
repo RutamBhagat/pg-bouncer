@@ -12,10 +12,10 @@ export class ConnectionPoolManager {
   private alertService: AlertService;
 
   constructor(private readonly config: DatabaseConfig) {
-    this.hosts = config.hosts
-      .map((hostConfig) => new PgBouncerHost(hostConfig))
-      .sort((a, b) => a.getPriority() - b.getPriority());
     this.alertService = new AlertService();
+    this.hosts = config.hosts
+      .map((hostConfig) => new PgBouncerHost(hostConfig, this.alertService))
+      .sort((a, b) => a.getPriority() - b.getPriority());
   }
 
   async getConnection(): Promise<PoolClient> {
