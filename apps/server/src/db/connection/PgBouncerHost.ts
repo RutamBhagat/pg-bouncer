@@ -2,11 +2,13 @@ import { Pool, type PoolClient } from "pg";
 import CircuitBreaker from "opossum";
 import type { PgBouncerConfig, HostHealth } from "@/db/config/types.js";
 import { HostStatus } from "@/db/config/types.js";
+import { failoverLogger } from "@/logger.js";
 
 export class PgBouncerHost {
   private pool: Pool;
   private circuitBreaker: CircuitBreaker<[], PoolClient>;
   private health: HostHealth;
+  private previousStatus: HostStatus;
 
   constructor(private readonly config: PgBouncerConfig) {
     this.pool = new Pool({
@@ -39,14 +41,19 @@ export class PgBouncerHost {
       lastCheckedAt: new Date(),
     };
 
+    this.previousStatus = HostStatus.HEALTHY;
+
     this.circuitBreaker.on("open", () => {
+      this.previousStatus = this.health.status;
       this.health.status = HostStatus.CIRCUIT_OPEN;
-      console.error(
-        `SLACK: [CIRCUIT_BREAKER_OPEN] ${config.id} circuit breaker opened`
+      failoverLogger.error(
+        { hostId: config.id, previousStatus: this.previousStatus },
+        "Circuit breaker opened"
       );
     });
 
     this.circuitBreaker.on("halfOpen", () => {
+      this.previousStatus = this.health.status;
       this.health.status = HostStatus.DEGRADED;
     });
 
@@ -54,6 +61,16 @@ export class PgBouncerHost {
       this.health.status = HostStatus.HEALTHY;
       this.health.consecutiveFailures = 0;
       this.health.lastSuccessAt = new Date();
+      this.previousStatus = HostStatus.HEALTHY;
+
+      failoverLogger.info(
+        {
+          hostId: this.config.id,
+          hostPriority: this.config.priority,
+          timestamp: new Date().toISOString(),
+        },
+        "PgBouncer instance recovered - circuit breaker closed"
+      );
     });
   }
 
@@ -69,8 +86,15 @@ export class PgBouncerHost {
     }
   }
 
-  getHealth(): HostHealth {
-    return { ...this.health };
+  getHealth(): HostHealth & { circuitState: string; stats?: any } {
+    const circuitState = this.circuitBreaker.opened ? 'open' : 
+                        this.circuitBreaker.closed ? 'closed' : 'halfOpen';
+    
+    return { 
+      ...this.health,
+      circuitState,
+      stats: this.circuitBreaker.stats
+    };
   }
 
   getId(): string {

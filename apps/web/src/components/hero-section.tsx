@@ -9,12 +9,13 @@ export default function HeroSection() {
     currentPgBouncer,
     responses,
     data,
+    error,
     isMonitoring,
     toggleMonitoring,
   } = usePgBouncerMonitor();
 
   const getCurrentInstanceName = () => {
-    if (!currentPgBouncer) return "No Active Connection";
+    if (error || !currentPgBouncer) return "No Active Connection";
 
     const priorityName =
       currentPgBouncer.priority === 1
@@ -41,17 +42,22 @@ export default function HeroSection() {
                 </h1>
                 <div className="mt-8 max-w-2xl">
                   <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
-                    {data?.hosts?.sort((a, b) => a.priority - b.priority).map((host) => {
+                    {!error && data?.hosts?.sort((a, b) => a.priority - b.priority).map((host) => {
                       const priorityName = host.priority === 1 ? "Primary" : 
                                           host.priority === 2 ? "Secondary" : 
                                           host.priority === 3 ? "Tertiary" : 
                                           `Priority ${host.priority}`;
                       const isActive = data.currentActiveHost === host.id;
+                      const circuitOpen = host.circuitState === 'open';
+                      const circuitHalfOpen = host.circuitState === 'halfOpen';
+                      
                       return (
                         <div
                           key={host.id}
                           className={`px-3 py-1 rounded-full text-sm font-medium border transition-all ${
-                            host.healthy
+                            circuitOpen
+                              ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
+                              : host.healthy
                               ? isActive
                                 ? "bg-green-500/20 text-green-400 border-green-500/30 ring-2 ring-green-500/50"
                                 : "bg-green-500/10 text-green-400 border-green-500/20"
@@ -61,16 +67,25 @@ export default function HeroSection() {
                           <div className="flex items-center gap-2">
                             <div
                               className={`w-2 h-2 rounded-full ${
+                                circuitOpen ? "bg-orange-400" :
+                                circuitHalfOpen ? "bg-yellow-400" :
                                 host.healthy ? "bg-green-400" : "bg-red-400"
                               }`}
                             />
                             {priorityName}
                             {isActive && <span className="text-xs">(Active)</span>}
+                            {circuitOpen && <span className="text-xs">(Circuit Open)</span>}
+                            {circuitHalfOpen && <span className="text-xs">(Half-Open)</span>}
+                            {host.consecutiveFailures > 0 && (
+                              <span className="text-xs">({host.consecutiveFailures} fails)</span>
+                            )}
                           </div>
                         </div>
                       );
                     }) || (
-                      <div className="text-muted-foreground">Loading status...</div>
+                      <div className="text-muted-foreground">
+                        {error ? "All instances down - connection failed" : "Loading status..."}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -106,7 +121,17 @@ export default function HeroSection() {
                   <h3 className="text-lg font-semibold mb-4">
                     Latest Response
                   </h3>
-                  {latestResponse ? (
+                  {error ? (
+                    <div className="bg-background/50 rounded-lg p-4 text-xs overflow-auto">
+                      <div className="text-destructive">
+                        <div className="font-medium mb-2">Connection Error</div>
+                        <div>All PgBouncer instances are unavailable</div>
+                        <div className="text-muted-foreground mt-2">
+                          Backend returned: {error.message || "Unknown error"}
+                        </div>
+                      </div>
+                    </div>
+                  ) : latestResponse ? (
                     <div className="bg-background/50 rounded-lg p-4 text-xs overflow-auto">
                       <JSONPretty
                         data={latestResponse.data}

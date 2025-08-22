@@ -4,18 +4,14 @@ import { HostStatus } from "@/db/config/types.js";
 import { PgBouncerHost } from "@/db/connection/PgBouncerHost.js";
 import type { PoolClient } from "pg";
 import { dbLogger, failoverLogger } from "@/logger.js";
-import { AlertService, type FailoverEvent } from "@/monitoring/AlertService.js";
-
 export class ConnectionPoolManager {
   private hosts: PgBouncerHost[];
   private lastSuccessfulHostId: string | null = null;
-  private alertService: AlertService;
 
   constructor(private readonly config: DatabaseConfig) {
     this.hosts = config.hosts
       .map((hostConfig) => new PgBouncerHost(hostConfig))
       .sort((a, b) => a.getPriority() - b.getPriority());
-    this.alertService = new AlertService();
   }
 
   async getConnection(): Promise<PoolClient> {
@@ -53,25 +49,15 @@ export class ConnectionPoolManager {
           this.lastSuccessfulHostId !== null &&
           this.lastSuccessfulHostId !== host.getId()
         ) {
-          const failoverEvent: FailoverEvent = {
-            fromHost: this.lastSuccessfulHostId,
-            toHost: host.getId(),
-            toHostPriority: host.getPriority(),
-            timestamp: new Date().toISOString(),
-            event: "failover_detected",
-          };
-
           failoverLogger.warn(
-            failoverEvent,
-            "FAILOVER: Database host switched - this could indicate an issue"
+            {
+              fromHost: this.lastSuccessfulHostId,
+              toHost: host.getId(),
+              toHostPriority: host.getPriority(),
+              timestamp: new Date().toISOString(),
+            },
+            "FAILOVER: Database host switched - circuit breaker triggered failover"
           );
-
-          this.alertService.sendFailoverAlert(failoverEvent).catch((error) => {
-            failoverLogger.error(
-              { error: error.message },
-              "Failed to send failover alert"
-            );
-          });
         } else if (this.lastSuccessfulHostId === null) {
           dbLogger.info(
             {
