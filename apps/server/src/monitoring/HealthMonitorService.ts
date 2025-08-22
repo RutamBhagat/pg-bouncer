@@ -31,11 +31,11 @@ export interface HealthSnapshot {
 
 export class HealthMonitorService {
   private currentStates = new Map<string, InstanceState>();
-  private previousSnapshot: HealthSnapshot | null = null;
   private alertService: AlertService;
   private isRunning = false;
   private monitoringInterval: NodeJS.Timeout | null = null;
   private readonly CHECK_INTERVAL = 5000; // 5 seconds
+  private isInitialHealthCheck = true;
 
   constructor(
     private readonly hosts: readonly PgBouncerConfig[],
@@ -152,17 +152,27 @@ export class HealthMonitorService {
       if (currentState.isHealthy !== isHealthy) {
         newState.lastStateChange = now;
 
-        if (isHealthy) {
-          newState.recoveredAt = now;
-          if (currentState.failedAt) {
-            const downtime = now.getTime() - currentState.failedAt.getTime();
-            await this.sendInstanceRecoveredNotification(host, downtime);
+        // Don't send notifications during initial health check
+        if (!this.isInitialHealthCheck) {
+          if (isHealthy) {
+            newState.recoveredAt = now;
+            if (currentState.failedAt) {
+              const downtime = now.getTime() - currentState.failedAt.getTime();
+              await this.sendInstanceRecoveredNotification(host, downtime);
+            } else {
+              await this.sendInstanceRecoveredNotification(host);
+            }
           } else {
-            await this.sendInstanceRecoveredNotification(host);
+            newState.failedAt = now;
+            await this.sendInstanceDownNotification(host);
           }
         } else {
-          newState.failedAt = now;
-          await this.sendInstanceDownNotification(host);
+          // During initial check, just set the timestamps without notifications
+          if (isHealthy) {
+            newState.recoveredAt = now;
+          } else {
+            newState.failedAt = now;
+          }
         }
       }
 
@@ -173,7 +183,11 @@ export class HealthMonitorService {
 
     const currentSnapshot = this.createSnapshot();
 
-    this.previousSnapshot = currentSnapshot;
+    // Reset initial check flag after first health check
+    if (this.isInitialHealthCheck) {
+      this.isInitialHealthCheck = false;
+      healthLogger.info("Initial health check completed - notifications now enabled");
+    }
 
     const checkDuration = Date.now() - startTime;
     metricsLogger.debug(
