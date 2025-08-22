@@ -4,7 +4,7 @@ import { HostStatus } from "@/db/config/types.js";
 import { PgBouncerHost } from "@/db/connection/PgBouncerHost.js";
 import type { PoolClient } from "pg";
 import { dbLogger, failoverLogger } from "@/logger.js";
-import { AlertService, type FailoverEvent } from "@/monitoring/AlertService.js";
+import { AlertService } from "@/monitoring/AlertService.js";
 
 export class ConnectionPoolManager {
   private hosts: PgBouncerHost[];
@@ -53,25 +53,15 @@ export class ConnectionPoolManager {
           this.lastSuccessfulHostId !== null &&
           this.lastSuccessfulHostId !== host.getId()
         ) {
-          const failoverEvent: FailoverEvent = {
-            fromHost: this.lastSuccessfulHostId,
-            toHost: host.getId(),
-            toHostPriority: host.getPriority(),
-            timestamp: new Date().toISOString(),
-            event: "failover_detected",
-          };
-
           failoverLogger.warn(
-            failoverEvent,
-            "FAILOVER: Database host switched - this could indicate an issue"
+            {
+              fromHost: this.lastSuccessfulHostId,
+              toHost: host.getId(),
+              toHostPriority: host.getPriority(),
+              timestamp: new Date().toISOString(),
+            },
+            "FAILOVER: Database host switched - circuit breaker triggered failover"
           );
-
-          this.alertService.sendFailoverAlert(failoverEvent).catch((error) => {
-            failoverLogger.error(
-              { error: error.message },
-              "Failed to send failover alert"
-            );
-          });
         } else if (this.lastSuccessfulHostId === null) {
           dbLogger.info(
             {
