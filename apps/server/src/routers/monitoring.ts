@@ -20,41 +20,35 @@ monitoring.get("/health/detailed", async (c) => {
   const startTime = Date.now();
 
   try {
-    try {
-      await db.selectFrom(sql<{ test: number }>`(SELECT 1 as test)`.as("t")).select("test").execute();
-    } catch (error) {
-      metricsLogger.warn({ error: error instanceof Error ? error.message : "Unknown error" }, "Test query failed during health check");
-    }
+    // This query goes through the circuit breaker and will trigger failover after failures
+    await db.selectFrom(sql<{ test: number }>`(SELECT 1 as test)`.as("t")).select("test").execute();
 
-    const healthChecks = await Promise.allSettled(
-      databaseConfig.hosts.map(async (host) => ({
-        id: host.id,
-        healthy: await checkDatabaseHealth(host),
-        host: host.host,
-        port: host.port,
-        priority: host.priority,
-      }))
-    );
-
-    const results = healthChecks.map((result, index) => ({
-      id: databaseConfig.hosts[index].id,
-      port: databaseConfig.hosts[index].port,
-      priority: databaseConfig.hosts[index].priority,
-      healthy: result.status === "fulfilled" ? result.value.healthy : false,
-      error: result.status === "rejected" ? result.reason?.message : null,
-    }));
+    const dialect = getDbDialect();
+    const connectionManager = dialect?.getConnectionManager();
+    const currentActiveHost = connectionManager?.getCurrentHost() || null;
+    
+    // Get circuit breaker states from connection manager
+    const hostsHealth = connectionManager?.getAllHostsHealth() || [];
+    
+    const results = hostsHealth.map((health) => {
+      const hostConfig = databaseConfig.hosts.find(h => h.id === health.id);
+      return {
+        id: health.id,
+        host: hostConfig?.host || 'unknown',
+        port: hostConfig?.port || 0,
+        priority: hostConfig?.priority || 999,
+        healthy: health.status === 'healthy' || health.status === 'degraded',
+        status: health.status,
+        circuitState: (health as any).circuitState || 'unknown',
+        consecutiveFailures: health.consecutiveFailures,
+        lastCheckedAt: health.lastCheckedAt,
+        error: null,
+      };
+    });
 
     const healthyCount = results.filter((r) => r.healthy).length;
     const totalCount = results.length;
     const isHealthy = healthyCount > 0;
-
-    const dialect = getDbDialect();
-    let currentActiveHost = dialect?.getConnectionManager()?.getCurrentHost() || null;
-    
-    if (!currentActiveHost && healthyCount > 0) {
-      const healthyHosts = results.filter(r => r.healthy).sort((a, b) => a.priority - b.priority);
-      currentActiveHost = healthyHosts[0]?.id || null;
-    }
 
     const response = {
       status: isHealthy ? "healthy" : "unhealthy",
@@ -73,6 +67,7 @@ monitoring.get("/health/detailed", async (c) => {
       {
         healthyHosts: healthyCount,
         totalHosts: totalCount,
+        activeHost: currentActiveHost,
         checkDuration: Date.now() - startTime,
       },
       "Health check completed"
@@ -80,19 +75,27 @@ monitoring.get("/health/detailed", async (c) => {
 
     return c.json(response);
   } catch (error) {
+    // Don't catch the error - let it propagate to trigger circuit breaker
+    const dialect = getDbDialect();
+    const connectionManager = dialect?.getConnectionManager();
+    const currentActiveHost = connectionManager?.getCurrentHost() || null;
+
     metricsLogger.error(
       {
         error: error instanceof Error ? error.message : "Unknown error",
+        activeHost: currentActiveHost,
         checkDuration: Date.now() - startTime,
       },
-      "Health check failed"
+      "Database query failed - circuit breaker may open"
     );
 
     return c.json(
       {
         status: "error",
         timestamp: new Date().toISOString(),
-        error: error instanceof Error ? error.message : "Unknown error",
+        currentActiveHost,
+        error: error instanceof Error ? error.message : "Database connection failed",
+        checkDurationMs: Date.now() - startTime,
       },
       500
     );
