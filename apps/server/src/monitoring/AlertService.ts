@@ -121,16 +121,6 @@ export class AlertService {
     }
   }
 
-  private formatFailoverMessage(event: FailoverEvent): string {
-    return `🚨 **PgBouncer Failover Detected** 🚨
-    
-**From:** ${event.fromHost}
-**To:** ${event.toHost} (Priority: ${event.toHostPriority})
-**Time:** ${event.timestamp}
-**Total Failovers:** ${this.failoverCount}
-
-This indicates that the primary database connection failed and the system automatically switched to a backup. Please investigate the source of the connection failure.`;
-  }
 
   private async sendToChannel(
     channel: AlertChannel,
