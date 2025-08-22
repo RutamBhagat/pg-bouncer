@@ -152,8 +152,14 @@ The test script validates:
 ### API Testing Endpoints
 - `/api/test-query` - Tests database connectivity and shows active PgBouncer
 - `/monitoring/health` - Basic health check
-- `/monitoring/health/detailed` - Detailed health status of all PgBouncer instances
+- `/monitoring/health/detailed` - Detailed health status with current active host, health summary, and individual host statuses
 - `/monitoring/metrics` - Prometheus-compatible metrics endpoint
+
+### Frontend Monitoring
+- **Real-time monitoring**: Custom React hook `usePgBouncerMonitor` for live health tracking
+- **Polling interval**: 500ms when monitoring is active
+- **Visual indicators**: Host status badges with active connection highlighting
+- **Monitoring data**: Tracks response history, current active PgBouncer, and formatted host statuses
 
 ## Important Notes
 
