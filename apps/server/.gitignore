@@ -52,4 +52,5 @@ lerna-debug.log*
 next-env.d.ts
 
 prisma/generated/
-*health-state.json
+data/health-state.json
+data/
