@@ -190,12 +190,11 @@ The PgBouncer instance is no longer responding to health checks. This may trigge
       failoverLogger.error(
         {
           error: error instanceof Error ? error.message : "Unknown error",
-          webhook: webhook.substring(0, 50) + "...",
           type,
         },
         "Failed to send Slack alert"
       );
-      throw error;
+      return
     }
   }
 
