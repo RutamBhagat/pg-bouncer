@@ -8,6 +8,13 @@ export interface FailoverEvent {
   event: "failover_detected";
 }
 
+export interface RecoveryEvent {
+  hostId: string;
+  hostPriority: number;
+  timestamp: string;
+  event: "recovery_detected";
+}
+
 export interface AlertChannel {
   name: string;
   webhook?: string;
@@ -25,6 +32,8 @@ export class AlertService {
 
   private lastFailoverTime: Date | null = null;
   private failoverCount = 0;
+  private lastRecoveryTime: Date | null = null;
+  private recoveryCount = 0;
   private readonly cooldownPeriod = 5 * 60 * 1000; // 5 minutes
 
   async sendFailoverAlert(event: FailoverEvent): Promise<void> {
@@ -53,7 +62,6 @@ export class AlertService {
       "Failover detected - sending alerts"
     );
 
-    // Send to all enabled channels
     const alertPromises = this.alertChannels
       .filter((channel) => channel.enabled)
       .map((channel) => this.sendToChannel(channel, message));
@@ -141,10 +149,128 @@ This indicates that the primary database connection failed and the system automa
     }
   }
 
+  async sendRecoveryAlert(event: RecoveryEvent): Promise<void> {
+    const now = new Date();
+
+    if (
+      this.lastRecoveryTime &&
+      now.getTime() - this.lastRecoveryTime.getTime() < this.cooldownPeriod
+    ) {
+      failoverLogger.debug("Recovery alert suppressed due to cooldown period");
+      return;
+    }
+
+    this.recoveryCount++;
+    this.lastRecoveryTime = now;
+
+    const message = this.formatRecoveryMessage(event);
+
+    failoverLogger.info(
+      {
+        ...event,
+        recoveryCount: this.recoveryCount,
+        alertsSent: this.alertChannels.filter((c) => c.enabled).length,
+      },
+      "Recovery detected - sending alerts"
+    );
+
+    // Send to all enabled channels
+    const alertPromises = this.alertChannels
+      .filter((channel) => channel.enabled)
+      .map((channel) => this.sendRecoveryToChannel(channel, message));
+
+    try {
+      await Promise.allSettled(alertPromises);
+      metricsLogger.info(
+        {
+          channelsSent: alertPromises.length,
+          event: "recovery_alerts_sent",
+        },
+        "Recovery alerts sent"
+      );
+    } catch (error) {
+      failoverLogger.error(
+        {
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
+        "Failed to send recovery alerts"
+      );
+    }
+  }
+
+  private formatRecoveryMessage(event: RecoveryEvent): string {
+    return `**PgBouncer Instance Recovered**
+
+**Host:** ${event.hostId} (Priority: ${event.hostPriority})
+**Time:** ${event.timestamp}
+**Total Recoveries:** ${this.recoveryCount}
+
+The PgBouncer instance has successfully recovered and is now accepting connections again.`;
+  }
+
+  private async sendRecoveryToChannel(
+    channel: AlertChannel,
+    message: string
+  ): Promise<void> {
+    switch (channel.name) {
+      case "slack":
+        if (!channel.webhook) {
+          failoverLogger.error({ channelName: channel.name }, "Slack webhook URL not configured");
+          return;
+        }
+        await this.sendRecoveryToSlack(channel.webhook, message);
+        break;
+      default:
+        failoverLogger.warn(
+          { channelName: channel.name },
+          "Unknown alert channel"
+        );
+    }
+  }
+
+  private async sendRecoveryToSlack(webhook: string, message: string): Promise<void> {
+    try {
+      const response = await fetch(webhook, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          attachments: [
+            {
+              color: "good",
+              text: message,
+              username: "PgBouncer Monitor",
+            },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Slack API error: ${response.status} ${response.statusText}`
+        );
+      }
+
+      failoverLogger.info("Slack recovery alert sent successfully");
+    } catch (error) {
+      failoverLogger.error(
+        {
+          error: error instanceof Error ? error.message : "Unknown error",
+          webhook: webhook.substring(0, 50) + "...", // Only log part of webhook for security
+        },
+        "Failed to send Slack recovery alert"
+      );
+      throw error;
+    }
+  }
+
   getMetrics() {
     return {
       failoverCount: this.failoverCount,
       lastFailoverTime: this.lastFailoverTime?.toISOString() || null,
+      recoveryCount: this.recoveryCount,
+      lastRecoveryTime: this.lastRecoveryTime?.toISOString() || null,
       alertChannels: this.alertChannels.map((c) => ({
         name: c.name,
         enabled: c.enabled,
