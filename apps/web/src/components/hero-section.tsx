@@ -14,7 +14,7 @@ export default function HeroSection() {
   } = usePgBouncerMonitor();
 
   const getCurrentInstanceName = () => {
-    if (!currentPgBouncer) return "No Active Connection";
+    if (error || !currentPgBouncer) return "No Active Connection";
 
     const priorityName =
       currentPgBouncer.priority === 1
@@ -41,7 +41,7 @@ export default function HeroSection() {
                 </h1>
                 <div className="mt-8 max-w-2xl">
                   <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
-                    {data?.hosts?.sort((a, b) => a.priority - b.priority).map((host) => {
+                    {!error && data?.hosts?.sort((a, b) => a.priority - b.priority).map((host) => {
                       const priorityName = host.priority === 1 ? "Primary" : 
                                           host.priority === 2 ? "Secondary" : 
                                           host.priority === 3 ? "Tertiary" : 
@@ -82,7 +82,9 @@ export default function HeroSection() {
                         </div>
                       );
                     }) || (
-                      <div className="text-muted-foreground">Loading status...</div>
+                      <div className="text-muted-foreground">
+                        {error ? "All instances down - connection failed" : "Loading status..."}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -118,7 +120,17 @@ export default function HeroSection() {
                   <h3 className="text-lg font-semibold mb-4">
                     Latest Response
                   </h3>
-                  {latestResponse ? (
+                  {error ? (
+                    <div className="bg-background/50 rounded-lg p-4 text-xs overflow-auto">
+                      <div className="text-destructive">
+                        <div className="font-medium mb-2">Connection Error</div>
+                        <div>All PgBouncer instances are unavailable</div>
+                        <div className="text-muted-foreground mt-2">
+                          Backend returned: {error.message || "Unknown error"}
+                        </div>
+                      </div>
+                    </div>
+                  ) : latestResponse ? (
                     <div className="bg-background/50 rounded-lg p-4 text-xs overflow-auto">
                       <JSONPretty
                         data={latestResponse.data}
