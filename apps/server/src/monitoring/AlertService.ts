@@ -1,28 +1,8 @@
 import { failoverLogger, metricsLogger } from "@/logger.js";
 
-// Legacy interfaces for backward compatibility
-export interface FailoverEvent {
-  fromHost: string;
-  toHost: string;
-  toHostPriority: number;
-  timestamp: string;
-  event: "failover_detected";
-}
-
-export interface RecoveryEvent {
-  hostId: string;
-  hostPriority: number;
-  timestamp: string;
-  event: "recovery_detected";
-}
-
-// New notification system
 export enum NotificationType {
   INSTANCE_DOWN = "instance_down",
-  INSTANCE_RECOVERED = "instance_recovered",
-  FAILOVER_OCCURRED = "failover_occurred",
-  ALL_DOWN_CRITICAL = "all_down_critical",
-  DEGRADED_SERVICE = "degraded_service"
+  INSTANCE_RECOVERED = "instance_recovered"
 }
 
 export interface InstanceNotification {
@@ -31,23 +11,6 @@ export interface InstanceNotification {
   hostPriority: number;
   timestamp: string;
   downtime?: number;
-  message: string;
-}
-
-export interface FailoverNotification {
-  type: NotificationType.FAILOVER_OCCURRED;
-  fromHost: string;
-  toHost: string;
-  fromPriority: number;
-  toPriority: number;
-  timestamp: string;
-  message: string;
-}
-
-export interface CriticalNotification {
-  type: NotificationType.ALL_DOWN_CRITICAL;
-  totalHosts: number;
-  timestamp: string;
   message: string;
 }
 
@@ -66,47 +29,11 @@ export class AlertService {
     },
   ];
 
-  private lastFailoverTime: Date | null = null;
-  private failoverCount = 0;
-  private lastRecoveryTime: Date | null = null;
   private recoveryCount = 0;
-  private lastInstanceDownTime: Date | null = null;
-  private lastCriticalTime: Date | null = null;
+  private downCount = 0;
 
-  // Legacy method for backward compatibility
-  async sendFailoverAlert(event: FailoverEvent): Promise<void> {
-    const notification: FailoverNotification = {
-      type: NotificationType.FAILOVER_OCCURRED,
-      fromHost: event.fromHost,
-      toHost: event.toHost,
-      fromPriority: 1, // Default priority, ideally should come from config
-      toPriority: event.toHostPriority,
-      timestamp: event.timestamp,
-      message: `Failover from ${event.fromHost} to ${event.toHost}`,
-    };
-
-    await this.sendFailoverNotification(notification);
-  }
-
-  // Legacy method for backward compatibility
-  async sendRecoveryAlert(event: RecoveryEvent): Promise<void> {
-    const notification: InstanceNotification = {
-      type: NotificationType.INSTANCE_RECOVERED,
-      hostId: event.hostId,
-      hostPriority: event.hostPriority,
-      timestamp: event.timestamp,
-      message: `PgBouncer instance ${event.hostId} has recovered`,
-    };
-
-    await this.sendInstanceNotification(notification);
-  }
-
-  // New notification methods
   async sendInstanceNotification(notification: InstanceNotification): Promise<void> {
-    const now = new Date();
-
-    // No cooldown - send all notifications immediately
-    this.updateLastNotificationTime(notification.type, now);
+    this.updateNotificationCount(notification.type);
 
     const message = this.formatInstanceMessage(notification);
 
@@ -121,56 +48,13 @@ export class AlertService {
     await this.sendNotificationToChannels(message, notification.type);
   }
 
-  async sendFailoverNotification(notification: FailoverNotification): Promise<void> {
-    const now = new Date();
-
-    // No cooldown for failover notifications - each failover should be reported immediately
-    this.failoverCount++;
-    this.lastFailoverTime = now;
-
-    const message = this.formatFailoverMessage(notification);
-
-    failoverLogger.warn(
-      {
-        ...notification,
-        failoverCount: this.failoverCount,
-        alertsSent: this.alertChannels.filter((c) => c.enabled).length,
-      },
-      "Failover detected - sending alerts"
-    );
-
-    await this.sendNotificationToChannels(message, NotificationType.FAILOVER_OCCURRED);
-  }
-
-  async sendCriticalNotification(notification: CriticalNotification): Promise<void> {
-    const now = new Date();
-
-    // No cooldown - send all critical notifications immediately
-    this.lastCriticalTime = now;
-
-    const message = this.formatCriticalMessage(notification);
-
-    failoverLogger.error(
-      {
-        ...notification,
-        alertsSent: this.alertChannels.filter((c) => c.enabled).length,
-      },
-      "Critical alert - all instances down"
-    );
-
-    await this.sendNotificationToChannels(message, NotificationType.ALL_DOWN_CRITICAL);
-  }
-
-
-  private updateLastNotificationTime(type: NotificationType, now: Date): void {
+  private updateNotificationCount(type: NotificationType): void {
     switch (type) {
       case NotificationType.INSTANCE_RECOVERED:
         this.recoveryCount++;
-        this.lastRecoveryTime = now;
         break;
       case NotificationType.INSTANCE_DOWN:
-      case NotificationType.DEGRADED_SERVICE:
-        this.lastInstanceDownTime = now;
+        this.downCount++;
         break;
     }
   }
@@ -180,57 +64,14 @@ export class AlertService {
     
     switch (notification.type) {
       case NotificationType.INSTANCE_RECOVERED:
-        return `**PgBouncer Instance Recovered**
-
-**Host:** ${notification.hostId} (${priorityName})
-**Time:** ${notification.timestamp}
-${notification.downtime ? `**Downtime:** ${this.formatDuration(notification.downtime)}` : ''}
-**Total Recoveries:** ${this.recoveryCount}
-
-The PgBouncer instance has successfully recovered and is now accepting connections again.`;
+        return `PgBouncer Instance Recovered\\n\\nHost: ${notification.hostId} (${priorityName})\\nTime: ${notification.timestamp}${notification.downtime ? `\\nDowntime: ${this.formatDuration(notification.downtime)}` : ''}\\nTotal Recoveries: ${this.recoveryCount}\\n\\nThe PgBouncer instance has successfully recovered and is now accepting connections again.`;
 
       case NotificationType.INSTANCE_DOWN:
-        return `**PgBouncer Instance Down**
-
-**Host:** ${notification.hostId} (${priorityName})
-**Time:** ${notification.timestamp}
-
-The PgBouncer instance is no longer responding to health checks. This may trigger automatic failover to backup instances.`;
-
-      case NotificationType.DEGRADED_SERVICE:
-        return `**PgBouncer Service Degraded**
-
-**Host:** ${notification.hostId} (${priorityName})
-**Time:** ${notification.timestamp}
-
-Some PgBouncer instances are unavailable. Service is operating in degraded mode with reduced capacity.`;
+        return `PgBouncer Instance Down\\n\\nHost: ${notification.hostId} (${priorityName})\\nTime: ${notification.timestamp}\\nTotal Failures: ${this.downCount}\\n\\nThe PgBouncer instance is no longer responding to health checks. This may trigger automatic failover to backup instances.`;
 
       default:
         return notification.message;
     }
-  }
-
-  private formatFailoverMessage(notification: FailoverNotification): string {
-    const fromPriorityName = this.getPriorityName(notification.fromPriority);
-    const toPriorityName = this.getPriorityName(notification.toPriority);
-
-    return `**PgBouncer Failover Occurred**
-
-**From:** ${notification.fromHost} (${fromPriorityName})
-**To:** ${notification.toHost} (${toPriorityName})
-**Time:** ${notification.timestamp}
-**Total Failovers:** ${this.failoverCount}
-
-The system has automatically switched to a backup PgBouncer instance due to connection failures.`;
-  }
-
-  private formatCriticalMessage(notification: CriticalNotification): string {
-    return `**CRITICAL: All PgBouncer Instances Down**
-
-**Total Hosts:** ${notification.totalHosts}
-**Time:** ${notification.timestamp}
-
-All PgBouncer instances are unavailable. Database connectivity is completely lost. Immediate intervention required.`;
   }
 
   private getPriorityName(priority: number): string {
@@ -350,11 +191,7 @@ All PgBouncer instances are unavailable. Database connectivity is completely los
       case NotificationType.INSTANCE_RECOVERED:
         return "good"; // Green
       case NotificationType.INSTANCE_DOWN:
-      case NotificationType.ALL_DOWN_CRITICAL:
         return "danger"; // Red
-      case NotificationType.FAILOVER_OCCURRED:
-      case NotificationType.DEGRADED_SERVICE:
-        return "warning"; // Yellow
       default:
         return "#808080"; // Gray
     }
@@ -366,12 +203,6 @@ All PgBouncer instances are unavailable. Database connectivity is completely los
         return ":white_check_mark:";
       case NotificationType.INSTANCE_DOWN:
         return ":x:";
-      case NotificationType.ALL_DOWN_CRITICAL:
-        return ":rotating_light:";
-      case NotificationType.FAILOVER_OCCURRED:
-        return ":arrows_counterclockwise:";
-      case NotificationType.DEGRADED_SERVICE:
-        return ":warning:";
       default:
         return ":information_source:";
     }
@@ -379,12 +210,8 @@ All PgBouncer instances are unavailable. Database connectivity is completely los
 
   getMetrics() {
     return {
-      failoverCount: this.failoverCount,
-      lastFailoverTime: this.lastFailoverTime?.toISOString() || null,
       recoveryCount: this.recoveryCount,
-      lastRecoveryTime: this.lastRecoveryTime?.toISOString() || null,
-      lastInstanceDownTime: this.lastInstanceDownTime?.toISOString() || null,
-      lastCriticalTime: this.lastCriticalTime?.toISOString() || null,
+      downCount: this.downCount,
       alertChannels: this.alertChannels.map((c) => ({
         name: c.name,
         enabled: c.enabled,
