@@ -7,7 +7,6 @@ import { usePgBouncerMonitor } from "@/hooks/use-pgbouncer-monitor";
 export default function HeroSection() {
   const {
     currentPgBouncer,
-    formattedHostsStatus,
     responses,
     data,
     isMonitoring,
@@ -102,7 +101,7 @@ export default function HeroSection() {
               </div>
 
               {/* Right side - Latest JSON Response */}
-              <div className="mx-auto max-w-lg lg:absolute lg:right-0 lg:top-0 lg:w-1/2 lg:max-w-none">
+              <div className="mx-auto mt-12 lg:mt-0 max-w-lg lg:absolute lg:right-0 lg:top-0 lg:w-1/2 lg:max-w-none">
                 <div className="bg-card/50 border rounded-xl p-6 backdrop-blur-sm">
                   <h3 className="text-lg font-semibold mb-4">
                     Latest Response
