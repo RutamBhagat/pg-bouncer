@@ -1,5 +1,6 @@
 import { failoverLogger, metricsLogger } from "@/logger.js";
 
+// Legacy interfaces for backward compatibility
 export interface FailoverEvent {
   fromHost: string;
   toHost: string;
@@ -15,6 +16,7 @@ export interface RecoveryEvent {
   event: "recovery_detected";
 }
 
+// New notification system
 export enum NotificationType {
   INSTANCE_DOWN = "instance_down",
   INSTANCE_RECOVERED = "instance_recovered",
@@ -72,177 +74,38 @@ export class AlertService {
   private lastCriticalTime: Date | null = null;
   private readonly cooldownPeriod = 5 * 60 * 1000; // 5 minutes
 
+  // Legacy method for backward compatibility
   async sendFailoverAlert(event: FailoverEvent): Promise<void> {
-    const now = new Date();
+    const notification: FailoverNotification = {
+      type: NotificationType.FAILOVER_OCCURRED,
+      fromHost: event.fromHost,
+      toHost: event.toHost,
+      fromPriority: 1, // Default priority, ideally should come from config
+      toPriority: event.toHostPriority,
+      timestamp: event.timestamp,
+      message: `Failover from ${event.fromHost} to ${event.toHost}`,
+    };
 
-    // Check if we're in cooldown period to avoid spam`
-    if (
-      this.lastFailoverTime &&
-      now.getTime() - this.lastFailoverTime.getTime() < this.cooldownPeriod
-    ) {
-      failoverLogger.debug("Failover alert suppressed due to cooldown period");
-      return;
-    }
-
-    this.failoverCount++;
-    this.lastFailoverTime = now;
-
-    const message = this.formatFailoverMessage(event);
-
-    failoverLogger.warn(
-      {
-        ...event,
-        failoverCount: this.failoverCount,
-        alertsSent: this.alertChannels.filter((c) => c.enabled).length,
-      },
-      "Failover detected - sending alerts"
-    );
-
-    const alertPromises = this.alertChannels
-      .filter((channel) => channel.enabled)
-      .map((channel) => this.sendToChannel(channel, message));
-
-    try {
-      await Promise.allSettled(alertPromises);
-      metricsLogger.info(
-        {
-          channelsSent: alertPromises.length,
-          event: "alerts_sent",
-        },
-        "Failover alerts sent"
-      );
-    } catch (error) {
-      failoverLogger.error(
-        {
-          error: error instanceof Error ? error.message : "Unknown error",
-        },
-        "Failed to send failover alerts"
-      );
-    }
+    await this.sendFailoverNotification(notification);
   }
 
-
-
+  // Legacy method for backward compatibility
   async sendRecoveryAlert(event: RecoveryEvent): Promise<void> {
-    const now = new Date();
+    const notification: InstanceNotification = {
+      type: NotificationType.INSTANCE_RECOVERED,
+      hostId: event.hostId,
+      hostPriority: event.hostPriority,
+      timestamp: event.timestamp,
+      message: `PgBouncer instance ${event.hostId} has recovered`,
+    };
 
-    if (
-      this.lastRecoveryTime &&
-      now.getTime() - this.lastRecoveryTime.getTime() < this.cooldownPeriod
-    ) {
-      failoverLogger.debug("Recovery alert suppressed due to cooldown period");
-      return;
-    }
-
-    this.recoveryCount++;
-    this.lastRecoveryTime = now;
-
-    const message = this.formatRecoveryMessage(event);
-
-    failoverLogger.info(
-      {
-        ...event,
-        recoveryCount: this.recoveryCount,
-        alertsSent: this.alertChannels.filter((c) => c.enabled).length,
-      },
-      "Recovery detected - sending alerts"
-    );
-
-    // Send to all enabled channels
-    const alertPromises = this.alertChannels
-      .filter((channel) => channel.enabled)
-      .map((channel) => this.sendRecoveryToChannel(channel, message));
-
-    try {
-      await Promise.allSettled(alertPromises);
-      metricsLogger.info(
-        {
-          channelsSent: alertPromises.length,
-          event: "recovery_alerts_sent",
-        },
-        "Recovery alerts sent"
-      );
-    } catch (error) {
-      failoverLogger.error(
-        {
-          error: error instanceof Error ? error.message : "Unknown error",
-        },
-        "Failed to send recovery alerts"
-      );
-    }
+    await this.sendInstanceNotification(notification);
   }
 
-  private formatRecoveryMessage(event: RecoveryEvent): string {
-    return `**PgBouncer Instance Recovered**
-
-**Host:** ${event.hostId} (Priority: ${event.hostPriority})
-**Time:** ${event.timestamp}
-**Total Recoveries:** ${this.recoveryCount}
-
-The PgBouncer instance has successfully recovered and is now accepting connections again.`;
-  }
-
-  private async sendRecoveryToChannel(
-    channel: AlertChannel,
-    message: string
-  ): Promise<void> {
-    switch (channel.name) {
-      case "slack":
-        if (!channel.webhook) {
-          failoverLogger.error({ channelName: channel.name }, "Slack webhook URL not configured");
-          return;
-        }
-        await this.sendRecoveryToSlack(channel.webhook, message);
-        break;
-      default:
-        failoverLogger.warn(
-          { channelName: channel.name },
-          "Unknown alert channel"
-        );
-    }
-  }
-
-  private async sendRecoveryToSlack(webhook: string, message: string): Promise<void> {
-    try {
-      const response = await fetch(webhook, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          attachments: [
-            {
-              color: "good",
-              text: message,
-              username: "PgBouncer Monitor",
-            },
-          ],
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `Slack API error: ${response.status} ${response.statusText}`
-        );
-      }
-
-      failoverLogger.info("Slack recovery alert sent successfully");
-    } catch (error) {
-      failoverLogger.error(
-        {
-          error: error instanceof Error ? error.message : "Unknown error",
-          webhook: webhook.substring(0, 50) + "...", // Only log part of webhook for security
-        },
-        "Failed to send Slack recovery alert"
-      );
-      throw error;
-    }
-  }
-
+  // New notification methods
   async sendInstanceNotification(notification: InstanceNotification): Promise<void> {
     const now = new Date();
 
-    // Apply cooldown based on notification type
     const shouldSkip = this.shouldSkipNotification(notification.type, now);
     if (shouldSkip) {
       failoverLogger.debug(`${notification.type} alert suppressed due to cooldown period`);
