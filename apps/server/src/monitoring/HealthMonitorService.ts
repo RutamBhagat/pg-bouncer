@@ -47,7 +47,7 @@ export class HealthMonitorService {
         id: host.id,
         priority: host.priority,
         isHealthy: false, // Start pessimistic
-        status: HostStatus.UNKNOWN,
+        status: HostStatus.FAILED,
         lastCheckTime: new Date(),
         consecutiveFailures: 0,
         consecutiveSuccesses: 0,
@@ -134,7 +134,7 @@ export class HealthMonitorService {
       const newState: InstanceState = {
         ...currentState,
         isHealthy,
-        status: isHealthy ? HostStatus.HEALTHY : HostStatus.UNHEALTHY,
+        status: isHealthy ? HostStatus.HEALTHY : HostStatus.FAILED,
         lastCheckTime: now,
         consecutiveFailures: isHealthy ? 0 : currentState.consecutiveFailures + 1,
         consecutiveSuccesses: isHealthy ? currentState.consecutiveSuccesses + 1 : 0,
