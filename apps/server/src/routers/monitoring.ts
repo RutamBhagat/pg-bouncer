@@ -37,7 +37,9 @@ monitoring.get("/health/detailed", async (c) => {
     );
 
     const results = healthChecks.map((result, index) => ({
-      ...databaseConfig.hosts[index],
+      id: databaseConfig.hosts[index].id,
+      port: databaseConfig.hosts[index].port,
+      priority: databaseConfig.hosts[index].priority,
       healthy: result.status === "fulfilled" ? result.value.healthy : false,
       error: result.status === "rejected" ? result.reason?.message : null,
     }));
@@ -114,7 +116,7 @@ monitoring.get("/metrics", async (c) => {
     healthChecks.forEach((result, index) => {
       if (result.status === "fulfilled") {
         const host = databaseConfig.hosts[index];
-        metrics += `pgbouncer_host_healthy{host="${host.host}",port="${host.port}",priority="${host.priority}",id="${host.id}"} ${result.value.healthy}\n`;
+        metrics += `pgbouncer_host_healthy{port="${host.port}",priority="${host.priority}",id="${host.id}"} ${result.value.healthy}\n`;
       }
     });
 
