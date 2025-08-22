@@ -130,14 +130,7 @@ export class AlertService {
   async sendFailoverNotification(notification: FailoverNotification): Promise<void> {
     const now = new Date();
 
-    if (
-      this.lastFailoverTime &&
-      now.getTime() - this.lastFailoverTime.getTime() < this.cooldownPeriod
-    ) {
-      failoverLogger.debug("Failover alert suppressed due to cooldown period");
-      return;
-    }
-
+    // No cooldown for failover notifications - each failover should be reported immediately
     this.failoverCount++;
     this.lastFailoverTime = now;
 
