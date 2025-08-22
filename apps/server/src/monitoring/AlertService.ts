@@ -321,11 +321,11 @@ The PgBouncer instance has successfully recovered and is now accepting connectio
   private shouldSkipNotification(type: NotificationType, now: Date): boolean {
     switch (type) {
       case NotificationType.INSTANCE_RECOVERED:
-        return this.lastRecoveryTime && 
+        return this.lastRecoveryTime !== null && 
                now.getTime() - this.lastRecoveryTime.getTime() < this.cooldownPeriod;
       case NotificationType.INSTANCE_DOWN:
       case NotificationType.DEGRADED_SERVICE:
-        return this.lastInstanceDownTime && 
+        return this.lastInstanceDownTime !== null && 
                now.getTime() - this.lastInstanceDownTime.getTime() < this.cooldownPeriod;
       default:
         return false;
