@@ -72,7 +72,6 @@ export class AlertService {
   private recoveryCount = 0;
   private lastInstanceDownTime: Date | null = null;
   private lastCriticalTime: Date | null = null;
-  private readonly cooldownPeriod = 5 * 60 * 1000; // 5 minutes
 
   // Legacy method for backward compatibility
   async sendFailoverAlert(event: FailoverEvent): Promise<void> {
@@ -106,12 +105,7 @@ export class AlertService {
   async sendInstanceNotification(notification: InstanceNotification): Promise<void> {
     const now = new Date();
 
-    const shouldSkip = this.shouldSkipNotification(notification.type, now);
-    if (shouldSkip) {
-      failoverLogger.debug(`${notification.type} alert suppressed due to cooldown period`);
-      return;
-    }
-
+    // No cooldown - send all notifications immediately
     this.updateLastNotificationTime(notification.type, now);
 
     const message = this.formatInstanceMessage(notification);
@@ -151,14 +145,7 @@ export class AlertService {
   async sendCriticalNotification(notification: CriticalNotification): Promise<void> {
     const now = new Date();
 
-    if (
-      this.lastCriticalTime &&
-      now.getTime() - this.lastCriticalTime.getTime() < this.cooldownPeriod
-    ) {
-      failoverLogger.debug("Critical alert suppressed due to cooldown period");
-      return;
-    }
-
+    // No cooldown - send all critical notifications immediately
     this.lastCriticalTime = now;
 
     const message = this.formatCriticalMessage(notification);
@@ -174,19 +161,6 @@ export class AlertService {
     await this.sendNotificationToChannels(message, NotificationType.ALL_DOWN_CRITICAL);
   }
 
-  private shouldSkipNotification(type: NotificationType, now: Date): boolean {
-    switch (type) {
-      case NotificationType.INSTANCE_RECOVERED:
-        return this.lastRecoveryTime !== null && 
-               now.getTime() - this.lastRecoveryTime.getTime() < this.cooldownPeriod;
-      case NotificationType.INSTANCE_DOWN:
-      case NotificationType.DEGRADED_SERVICE:
-        return this.lastInstanceDownTime !== null && 
-               now.getTime() - this.lastInstanceDownTime.getTime() < this.cooldownPeriod;
-      default:
-        return false;
-    }
-  }
 
   private updateLastNotificationTime(type: NotificationType, now: Date): void {
     switch (type) {

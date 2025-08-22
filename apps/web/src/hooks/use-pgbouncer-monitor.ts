@@ -51,7 +51,7 @@ export function usePgBouncerMonitor() {
       const data: HealthResponse = await response.json();
       return data;
     },
-    refetchInterval: isMonitoring ? 500 : false,
+    refetchInterval: isMonitoring ? 1000 : false,
     enabled: isMonitoring,
     staleTime: 0,
     refetchOnWindowFocus: false,
