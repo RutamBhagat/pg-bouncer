@@ -2,13 +2,11 @@ import {
   AlertService,
   NotificationType,
   type InstanceNotification,
-  type CriticalNotification,
 } from "@/monitoring/AlertService.js";
 import { checkDatabaseHealth } from "@/db/health/HealthChecker.js";
 import type { PgBouncerConfig } from "@/db/config/types.js";
 import { HostStatus } from "@/db/config/types.js";
-import { healthLogger, metricsLogger, failoverLogger } from "@/logger.js";
-import { StateStore } from "@/monitoring/StateStore.js";
+import { healthLogger, metricsLogger } from "@/logger.js";
 
 export interface InstanceState {
   id: string;
@@ -35,19 +33,15 @@ export class HealthMonitorService {
   private currentStates = new Map<string, InstanceState>();
   private previousSnapshot: HealthSnapshot | null = null;
   private alertService: AlertService;
-  private stateStore: StateStore;
   private isRunning = false;
   private monitoringInterval: NodeJS.Timeout | null = null;
   private readonly CHECK_INTERVAL = 5000; // 5 seconds
-  private hasSentCriticalNotification = false;
 
   constructor(
     private readonly hosts: readonly PgBouncerConfig[],
-    alertService?: AlertService,
-    stateStore?: StateStore
+    alertService?: AlertService
   ) {
     this.alertService = alertService || new AlertService();
-    this.stateStore = stateStore || new StateStore();
     this.initializeStates();
   }
 
@@ -82,9 +76,6 @@ export class HealthMonitorService {
     this.isRunning = true;
     healthLogger.info("Starting HealthMonitorService");
 
-    // Load persisted state
-    await this.loadPersistedState();
-
     // Perform initial health check
     await this.performHealthCheck();
 
@@ -118,89 +109,6 @@ export class HealthMonitorService {
     }
 
     healthLogger.info("HealthMonitorService stopped");
-  }
-
-  private async loadPersistedState(): Promise<void> {
-    try {
-      const persistedData = await this.stateStore.loadState();
-
-      if (persistedData) {
-        // Compare persisted state with current health check
-        healthLogger.info(
-          {
-            persistedStates: persistedData.states.size,
-            lastActiveHost: persistedData.lastActiveHost,
-          },
-          "Loading persisted state"
-        );
-
-        // Check for state differences and send notifications
-        await this.checkStateChangesOnStartup(persistedData.states);
-
-        // Use persisted states as starting point (but will be updated by first health check)
-        for (const [id, persistedState] of persistedData.states) {
-          if (this.currentStates.has(id)) {
-            // Merge persisted data with current state, keeping structure
-            const currentState = this.currentStates.get(id)!;
-            this.currentStates.set(id, {
-              ...currentState,
-              consecutiveFailures: persistedState.consecutiveFailures,
-              consecutiveSuccesses: persistedState.consecutiveSuccesses,
-              failedAt: persistedState.failedAt,
-              recoveredAt: persistedState.recoveredAt,
-            });
-          }
-        }
-      }
-    } catch (error) {
-      healthLogger.error(
-        { error: error instanceof Error ? error.message : "Unknown error" },
-        "Failed to load persisted state, starting fresh"
-      );
-    }
-  }
-
-  private async checkStateChangesOnStartup(
-    persistedStates: Map<string, InstanceState>
-  ): Promise<void> {
-    // Perform quick health check to compare with persisted state
-    const quickHealthChecks = await Promise.allSettled(
-      this.hosts.map(async (host) => ({
-        id: host.id,
-        config: host,
-        healthy: await checkDatabaseHealth(host),
-      }))
-    );
-
-    for (let i = 0; i < quickHealthChecks.length; i++) {
-      const result = quickHealthChecks[i];
-      const host = this.hosts[i];
-      const persistedState = persistedStates.get(host.id);
-
-      if (result.status === "fulfilled" && persistedState) {
-        const currentlyHealthy = result.value.healthy;
-        const wasHealthy = persistedState.isHealthy;
-
-        // If state changed while server was down, send notification
-        if (wasHealthy && !currentlyHealthy) {
-          healthLogger.warn(
-            { hostId: host.id, wasHealthy, currentlyHealthy },
-            "Instance went down while server was offline"
-          );
-          await this.sendInstanceDownNotification(host);
-        } else if (!wasHealthy && currentlyHealthy) {
-          healthLogger.info(
-            { hostId: host.id, wasHealthy, currentlyHealthy },
-            "Instance recovered while server was offline"
-          );
-          // Calculate approximate downtime if we have failure time
-          const downtime = persistedState.failedAt
-            ? Date.now() - persistedState.failedAt.getTime()
-            : undefined;
-          await this.sendInstanceRecoveredNotification(host, downtime);
-        }
-      }
-    }
   }
 
   private async performHealthCheck(): Promise<void> {
@@ -265,12 +173,7 @@ export class HealthMonitorService {
 
     const currentSnapshot = this.createSnapshot();
 
-    await this.analyzeSystemState(currentSnapshot);
-
     this.previousSnapshot = currentSnapshot;
-
-    // Save current state to persistent store
-    await this.saveCurrentState(currentSnapshot.activeHost);
 
     const checkDuration = Date.now() - startTime;
     metricsLogger.debug(
@@ -303,38 +206,6 @@ export class HealthMonitorService {
     if (healthyHosts.length === 0) return null;
 
     return healthyHosts.sort((a, b) => a.priority - b.priority)[0].id;
-  }
-
-  private async analyzeSystemState(
-    currentSnapshot: HealthSnapshot
-  ): Promise<void> {
-    if (currentSnapshot.healthyCount === 0 && currentSnapshot.totalCount > 0) {
-      if (!this.hasSentCriticalNotification) {
-        await this.sendCriticalNotification();
-        this.hasSentCriticalNotification = true;
-      }
-      return;
-    }
-
-    if (currentSnapshot.healthyCount > 0 && this.hasSentCriticalNotification) {
-      this.hasSentCriticalNotification = false;
-      healthLogger.info(
-        "System recovered from critical state - ready to send critical notifications again"
-      );
-    }
-
-    if (
-      this.previousSnapshot &&
-      this.previousSnapshot.activeHost !== currentSnapshot.activeHost
-    ) {
-      healthLogger.info(
-        {
-          fromHost: this.previousSnapshot.activeHost,
-          toHost: currentSnapshot.activeHost,
-        },
-        "Active host changed - circuit breaker triggered automatic failover"
-      );
-    }
   }
 
   private async sendInstanceDownNotification(
@@ -384,33 +255,6 @@ export class HealthMonitorService {
       },
       "Instance recovery notification sent"
     );
-  }
-
-  private async sendCriticalNotification(): Promise<void> {
-    const notification: CriticalNotification = {
-      type: NotificationType.ALL_DOWN_CRITICAL,
-      totalHosts: this.hosts.length,
-      timestamp: new Date().toISOString(),
-      message: "All PgBouncer instances are down",
-    };
-
-    await this.alertService.sendCriticalNotification(notification);
-
-    healthLogger.error(
-      { totalHosts: this.hosts.length },
-      "Critical notification sent - all instances down"
-    );
-  }
-
-  private async saveCurrentState(activeHost: string | null): Promise<void> {
-    try {
-      await this.stateStore.saveState(this.currentStates, activeHost);
-    } catch (error) {
-      healthLogger.error(
-        { error: error instanceof Error ? error.message : "Unknown error" },
-        "Failed to save current state"
-      );
-    }
   }
 
   // Public API methods
