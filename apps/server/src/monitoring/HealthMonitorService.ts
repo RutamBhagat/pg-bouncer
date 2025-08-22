@@ -1,4 +1,4 @@
-import { AlertService, NotificationType, type InstanceNotification, type FailoverNotification, type CriticalNotification } from "@/monitoring/AlertService.js";
+import { AlertService, NotificationType, type InstanceNotification, type CriticalNotification } from "@/monitoring/AlertService.js";
 import { checkDatabaseHealth } from "@/db/health/HealthChecker.js";
 import type { PgBouncerConfig } from "@/db/config/types.js";
 import { HostStatus } from "@/db/config/types.js";
@@ -298,9 +298,12 @@ export class HealthMonitorService {
     }
 
     if (this.previousSnapshot && this.previousSnapshot.activeHost !== currentSnapshot.activeHost) {
-      await this.sendFailoverNotification(
-        this.previousSnapshot.activeHost,
-        currentSnapshot.activeHost
+      healthLogger.info(
+        {
+          fromHost: this.previousSnapshot.activeHost,
+          toHost: currentSnapshot.activeHost,
+        },
+        "Active host changed - circuit breaker triggered automatic failover"
       );
     }
 
@@ -355,36 +358,6 @@ export class HealthMonitorService {
     );
   }
 
-  private async sendFailoverNotification(fromHost: string | null, toHost: string | null): Promise<void> {
-    if (!fromHost || !toHost) return;
-
-    const fromHostConfig = this.hosts.find(h => h.id === fromHost);
-    const toHostConfig = this.hosts.find(h => h.id === toHost);
-
-    if (!fromHostConfig || !toHostConfig) return;
-
-    const notification: FailoverNotification = {
-      type: NotificationType.FAILOVER_OCCURRED,
-      fromHost,
-      toHost,
-      fromPriority: fromHostConfig.priority,
-      toPriority: toHostConfig.priority,
-      timestamp: new Date().toISOString(),
-      message: `Failover from ${fromHost} to ${toHost}`,
-    };
-
-    await this.alertService.sendFailoverNotification(notification);
-
-    failoverLogger.warn(
-      {
-        fromHost,
-        toHost,
-        fromPriority: fromHostConfig.priority,
-        toPriority: toHostConfig.priority,
-      },
-      "Failover notification sent"
-    );
-  }
 
   private async sendDegradedServiceNotification(): Promise<void> {
     const unhealthyHosts = Array.from(this.currentStates.values())
