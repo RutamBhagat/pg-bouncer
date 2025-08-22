@@ -9,6 +9,9 @@ import { monitoring } from "@/routers/monitoring.js";
 import { test } from "@/routers/test.js";
 import { serve } from "@hono/node-server";
 import { warmupConnections } from "@/db/health/HealthChecker.js";
+import { HealthMonitorService } from "@/monitoring/HealthMonitorService.js";
+import { AlertService } from "@/monitoring/AlertService.js";
+import { stateStore } from "@/monitoring/StateStore.js";
 
 const appLogger = createLogger("app");
 
@@ -30,7 +33,22 @@ app.route("/monitoring", monitoring);
 app.route("/api", test);
 
 appLogger.info("Starting PgBouncer failover application");
+
+// Initialize monitoring services
+const alertService = new AlertService();
+const healthMonitorService = new HealthMonitorService(
+  databaseConfig.hosts,
+  alertService,
+  stateStore
+);
+
+// Warm up database connections
 await warmupConnections(databaseConfig.hosts);
+
+// Start health monitoring
+await healthMonitorService.start();
+
+appLogger.info("Health monitoring started");
 
 const port = 3000;
 serve(
@@ -49,3 +67,36 @@ serve(
     );
   }
 );
+
+// Graceful shutdown
+process.on("SIGINT", async () => {
+  appLogger.info("Received SIGINT, shutting down gracefully");
+  
+  try {
+    await healthMonitorService.stop();
+    appLogger.info("Health monitoring stopped");
+    process.exit(0);
+  } catch (error) {
+    appLogger.error(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      "Error during shutdown"
+    );
+    process.exit(1);
+  }
+});
+
+process.on("SIGTERM", async () => {
+  appLogger.info("Received SIGTERM, shutting down gracefully");
+  
+  try {
+    await healthMonitorService.stop();
+    appLogger.info("Health monitoring stopped");
+    process.exit(0);
+  } catch (error) {
+    appLogger.error(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      "Error during shutdown"
+    );
+    process.exit(1);
+  }
+});
