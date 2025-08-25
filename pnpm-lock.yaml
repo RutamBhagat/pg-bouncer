@@ -32,6 +32,9 @@ importers:
       hono:
         specifier: ^4.8.2
         version: 4.9.4
+      kysely:
+        specifier: ^0.28.5
+        version: 0.28.5
       kysely-postgres-js:
         specifier: ^2.0.0
         version: 2.0.0(kysely@0.28.5)(postgres@3.4.7)
