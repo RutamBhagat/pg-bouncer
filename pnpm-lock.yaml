@@ -57,6 +57,9 @@ importers:
       '@types/node':
         specifier: ^22.13.11
         version: 22.18.0
+      '@types/opossum':
+        specifier: ^8.1.9
+        version: 8.1.9
       prisma:
         specifier: ^6.13.0
         version: 6.14.0(typescript@5.9.2)
@@ -1659,6 +1662,9 @@ packages:
 
   '@types/normalize-package-data@2.4.4':
     resolution: {integrity: sha512-37i+OaWTh9qeK4LSHPsyRC7NahnGotNuZvjLSgcPzblpHB3rrCJxAOgI5gCdKm7coonsaX1Of0ILiTcnZjbfxA==}
+
+  '@types/opossum@8.1.9':
+    resolution: {integrity: sha512-Jm/tYxuJFefiwRYs+/EOsUP3ktk0c8siMgAHPLnA4PXF4wKghzcjqf88dY+Xii5jId5Txw4JV0FMKTpjbd7KJA==}
 
   '@types/react-dom@19.1.7':
     resolution: {integrity: sha512-i5ZzwYpqjmrKenzkoLM2Ibzt6mAsM7pxB6BCIouEVVmgiqaMj1TjaK7hnA36hbW5aZv20kx7Lw6hWzPWg0Rurw==}
@@ -4652,6 +4658,10 @@ snapshots:
       undici-types: 6.21.0
 
   '@types/normalize-package-data@2.4.4': {}
+
+  '@types/opossum@8.1.9':
+    dependencies:
+      '@types/node': 22.18.0
 
   '@types/react-dom@19.1.7(@types/react@19.1.11)':
     dependencies:

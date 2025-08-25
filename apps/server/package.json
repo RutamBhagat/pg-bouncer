@@ -33,6 +33,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.11",
+    "@types/opossum": "^8.1.9",
     "prisma": "^6.13.0",
     "tsdown": "^0.14.1",
     "tsx": "^4.19.2",
