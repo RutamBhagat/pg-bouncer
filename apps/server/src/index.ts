@@ -1,8 +1,11 @@
 import "dotenv/config";
+
 import { Hono } from "hono";
-import { cors } from "hono/cors";
-import { logger } from "hono/logger";
 import { auth } from "./lib/auth";
+import { cors } from "hono/cors";
+import { health } from "./routers/health";
+import { logger } from "hono/logger";
+import { serve } from "@hono/node-server";
 
 const app = new Hono();
 
@@ -14,7 +17,7 @@ app.use(
     allowMethods: ["GET", "POST", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
     credentials: true,
-  }),
+  })
 );
 
 app.on(["POST", "GET"], "/api/auth/**", (c) => auth.handler(c.req.raw));
@@ -23,7 +26,7 @@ app.get("/", (c) => {
   return c.text("OK");
 });
 
-import { serve } from "@hono/node-server";
+app.route("/api/health", health);
 
 serve(
   {
@@ -32,5 +35,5 @@ serve(
   },
   (info) => {
     console.log(`Server is running on http://localhost:${info.port}`);
-  },
+  }
 );
