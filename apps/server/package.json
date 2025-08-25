@@ -24,9 +24,11 @@
     "dotenv": "^17.2.1",
     "hono": "^4.8.2",
     "kysely": "^0.28.5",
+    "kysely-postgres-js": "^2.0.0",
     "opossum": "^9.0.0",
     "p-retry": "^7.0.0",
     "pg": "^8.16.3",
+    "postgres": "^3.4.7",
     "prisma-kysely": "^1.8.0",
     "zod": "^4.0.2"
   },
