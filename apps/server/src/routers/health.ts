@@ -44,8 +44,6 @@ health.get("/db", async (c) => {
       },
     });
   } catch (error) {
-    console.error("Database health check failed:", error);
-
     return c.json(
       {
         status: "unhealthy",
