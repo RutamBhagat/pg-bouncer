@@ -27,6 +27,7 @@
     "opossum": "^9.0.0",
     "p-retry": "^7.0.0",
     "postgres": "^3.4.7",
+    "prisma-kysely": "^1.8.0",
     "zod": "^4.0.2"
   },
   "devDependencies": {
