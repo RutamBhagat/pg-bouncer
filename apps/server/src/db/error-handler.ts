@@ -1,3 +1,15 @@
+import pino from 'pino';
+
+const logger = pino({
+  level: 'info',
+  timestamp: pino.stdTimeFunctions.isoTime,
+  formatters: {
+    level: (label) => {
+      return { level: label };
+    }
+  }
+});
+
 // Common PostgreSQL error codes
 const DB_ERROR_CODES = {
   CONNECTION_EXCEPTION: '08000',
@@ -34,17 +46,23 @@ export function logDbError(error: Error, context: Partial<DbErrorLog>) {
   const pgError = error as any;
   const errorCode = pgError.code as DbErrorCode;
   
-  const logEntry: DbErrorLog = {
-    timestamp: new Date().toISOString(),
-    level: context.level || 'warn',
+  const logData = {
     event: context.event || 'db_connection_error',
     error_code: errorCode,
     error_type: getErrorType(errorCode, error.message),
-    message: getErrorMessage(errorCode, error.message),
-    ...context
+    pgbouncer_index: context.pgbouncer_index,
+    endpoint: context.endpoint,
+    retry_count: context.retry_count
   };
   
-  console.log(JSON.stringify(logEntry));
+  const message = getErrorMessage(errorCode, error.message);
+  const level = context.level || 'warn';
+  
+  if (level === 'error') {
+    logger.error(logData, message);
+  } else {
+    logger.warn(logData, message);
+  }
 }
 
 function getErrorType(code: string | undefined, message: string): string {
