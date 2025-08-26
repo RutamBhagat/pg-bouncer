@@ -3,11 +3,11 @@ import {
   circuitBreaker,
   ExponentialBackoff,
   handleAll,
-  type IPolicy,
   retry,
   TimeoutStrategy,
   timeout,
   wrap,
+  type IPolicy,
 } from "cockatiel";
 import type { DatabaseConnection, Driver, TransactionSettings } from "kysely";
 import { CompiledQuery } from "kysely";
