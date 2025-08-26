@@ -11,8 +11,9 @@ import {
 } from "cockatiel";
 import type { DatabaseConnection, Driver, TransactionSettings } from "kysely";
 import { CompiledQuery } from "kysely";
-import { FailoverPoolManager, type PgBouncerEndpoint } from "./failover-pool";
+import { FailoverPoolManager } from "./failover-pool";
 import { ResilientConnection } from "./resilient-connection";
+import type { PgBouncerEndpoint } from "./client";
 
 export class ResilientPostgresDriver implements Driver {
   private poolManager: FailoverPoolManager;
