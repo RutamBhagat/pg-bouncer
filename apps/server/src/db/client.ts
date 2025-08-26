@@ -14,7 +14,7 @@ const sql = postgres(process.env.DATABASE_URL!, {
 });
 
 const db = new Kysely<DB>({
-  dialect: new TimeoutPostgresDialect(sql, 30000),
+  dialect: new TimeoutPostgresDialect(sql, 5000),
 });
 
 // Export sql instance for direct use when needed, useful for SET LOCAL statement_timeout within OLAP transactions

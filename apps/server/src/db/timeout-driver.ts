@@ -1,9 +1,15 @@
 import type { DatabaseConnection, Driver } from "kysely";
 
 import { TimeoutConnection } from "@/db/timeout-connection";
+import { timeout, TimeoutStrategy } from "cockatiel";
 
 export class TimeoutDriver implements Driver {
-  constructor(private driver: Driver, private timeoutMs: number) {}
+  private acquisitionTimeout;
+
+  constructor(private driver: Driver, private timeoutMs: number) {
+    // Add timeout for connection acquisition to prevent hanging when PgBouncers are down
+    this.acquisitionTimeout = timeout(timeoutMs, TimeoutStrategy.Aggressive);
+  }
 
   async init(): Promise<void> {
     return this.driver.init();
@@ -14,8 +20,20 @@ export class TimeoutDriver implements Driver {
   }
 
   async acquireConnection(): Promise<DatabaseConnection> {
-    const conn = await this.driver.acquireConnection();
-    return new TimeoutConnection(conn, this.timeoutMs);
+    try {
+      // Wrap the connection acquisition with timeout
+      const conn = await this.acquisitionTimeout.execute(() =>
+        this.driver.acquireConnection()
+      );
+      return new TimeoutConnection(conn, this.timeoutMs);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("timeout")) {
+        throw new Error(
+          `Connection acquisition timeout after ${this.timeoutMs}ms - all PgBouncers may be unavailable`
+        );
+      }
+      throw error;
+    }
   }
 
   async beginTransaction(
