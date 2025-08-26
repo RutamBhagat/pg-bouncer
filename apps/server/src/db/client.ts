@@ -16,3 +16,4 @@ const pgSql = postgres(process.env.DATABASE_URL!, {
 export const db = new Kysely<DB>({
   dialect: new TimeoutPostgresDialect(pgSql, 5000),
 });
+

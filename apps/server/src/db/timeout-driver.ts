@@ -5,7 +5,7 @@ export class TimeoutDriver implements Driver {
   private timeoutPolicy;
 
   constructor(private driver: Driver, private timeoutMs: number) {
-    this.timeoutPolicy = timeout(30000, TimeoutStrategy.Aggressive);
+    this.timeoutPolicy = timeout(this.timeoutMs, TimeoutStrategy.Aggressive);
   }
 
   async init(): Promise<void> {
