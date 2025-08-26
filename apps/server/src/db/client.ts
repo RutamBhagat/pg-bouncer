@@ -1,6 +1,11 @@
+import type { DB } from "./types";
 import { Kysely } from "kysely";
 import { ResilientPostgresDialect } from "./resilient-dialect";
-import type { DB, PgBouncerEndpoint } from "./types";
+
+export interface PgBouncerEndpoint {
+  host: string;
+  port: number;
+}
 
 const pgBouncerEndpoints: Array<PgBouncerEndpoint> = process.env.PGBOUNCER_HOSTS
   ? process.env.PGBOUNCER_HOSTS.split(",").map((host) => {
@@ -12,8 +17,6 @@ const pgBouncerEndpoints: Array<PgBouncerEndpoint> = process.env.PGBOUNCER_HOSTS
     })
   : [{ host: "localhost", port: 6432 }];
 
-const dialect = new ResilientPostgresDialect(pgBouncerEndpoints);
-
 export const db = new Kysely<DB>({
-  dialect,
+  dialect: new ResilientPostgresDialect(pgBouncerEndpoints),
 });
