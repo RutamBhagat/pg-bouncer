@@ -1,19 +1,20 @@
 import {
   ConsecutiveBreaker,
-  circuitBreaker,
   ExponentialBackoff,
+  TimeoutStrategy,
+  circuitBreaker,
   handleAll,
   retry,
-  TimeoutStrategy,
   timeout,
   wrap,
-  type IPolicy,
 } from "cockatiel";
 import type { DatabaseConnection, Driver, TransactionSettings } from "kysely";
+
 import { CompiledQuery } from "kysely";
 import { FailoverPoolManager } from "./failover-pool";
-import { ResilientConnection } from "./resilient-connection";
+import type { IPolicy } from "cockatiel";
 import type { PgBouncerEndpoint } from "./client";
+import { ResilientConnection } from "./resilient-connection";
 
 export class ResilientPostgresDriver implements Driver {
   private poolManager: FailoverPoolManager;
@@ -45,7 +46,7 @@ export class ResilientPostgresDriver implements Driver {
 
   async beginTransaction(
     connection: DatabaseConnection,
-    _settings: TransactionSettings,
+    _settings: TransactionSettings
   ): Promise<void> {
     await connection.executeQuery(CompiledQuery.raw("BEGIN"));
   }
