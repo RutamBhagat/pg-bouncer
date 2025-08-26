@@ -38,9 +38,6 @@ importers:
       kysely-postgres-js:
         specifier: ^2.0.0
         version: 2.0.0(kysely@0.28.5)(postgres@3.4.7)
-      opossum:
-        specifier: ^9.0.0
-        version: 9.0.0
       p-retry:
         specifier: ^7.0.0
         version: 7.0.0
@@ -69,6 +66,9 @@ importers:
       '@types/pg':
         specifier: ^8.15.5
         version: 8.15.5
+      opossum:
+        specifier: ^9.0.0
+        version: 9.0.0
       prisma:
         specifier: ^6.13.0
         version: 6.14.0(typescript@5.9.2)
