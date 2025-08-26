@@ -1,4 +1,4 @@
-import { db, pgSql } from "@/db/client";
+import { olapDb, oltpDb, pgSql } from "@/db/client";
 
 import { Hono } from "hono";
 import { sql } from "kysely";
@@ -9,7 +9,7 @@ health.get("/db", async (c) => {
   try {
     const startTime = Date.now();
 
-    const result = await db
+    const result = await oltpDb
       .selectNoFrom((_eb) => [
         sql<string>`current_database()`.as("database_name"),
         sql<string>`current_user`.as("user_name"),
@@ -62,7 +62,7 @@ health.get("/db-olap", async (c) => {
     const startTime = Date.now();
 
     // Test with a heavy analytical query using extended timeout
-    const result = await db.transaction().execute(async (trx) => {
+    const result = await olapDb.transaction().execute(async (trx) => {
       // Set 2 minute timeout for OLAP queries
       await pgSql`SET LOCAL statement_timeout = '2min'`;
 
@@ -159,10 +159,10 @@ health.get("/db-olap", async (c) => {
 health.get("/db-slow", async (c) => {
   const startTime = Date.now();
   try {
-    // This should timeout after 30 seconds (your default timeout)
-    const result = await db
+    // This should timeout after 2 minutes (OLAP timeout)
+    const result = await olapDb
       .selectNoFrom(() => [
-        sql<number>`pg_sleep(45)`.as("sleep_result"), // Sleep for 45 seconds
+        sql<number>`pg_sleep(150)`.as("sleep_result"), // Sleep for 150 seconds (2.5 minutes)
       ])
       .executeTakeFirst();
 
@@ -181,7 +181,7 @@ health.get("/db-slow", async (c) => {
         message: isTimeout ? "Query correctly timed out" : "Query failed",
         error: error instanceof Error ? error.message : "Unknown error",
         time_ms: Date.now() - startTime,
-        expected: "Should timeout after 30 seconds",
+        expected: "Should timeout after 2 minutes",
       },
       isTimeout ? 200 : 500
     ); // Return 200 for expected timeout
