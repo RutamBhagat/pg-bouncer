@@ -1,14 +1,14 @@
 import type { DatabaseConnection, Driver } from "kysely";
+import { TimeoutStrategy, timeout } from "cockatiel";
 
 import { TimeoutConnection } from "@/db/timeout-connection";
-import { timeout, TimeoutStrategy } from "cockatiel";
 
 export class TimeoutDriver implements Driver {
-  private acquisitionTimeout;
+  private timeoutPolicy;
 
   constructor(private driver: Driver, private timeoutMs: number) {
     // Add timeout for connection acquisition to prevent hanging when PgBouncers are down
-    this.acquisitionTimeout = timeout(timeoutMs, TimeoutStrategy.Aggressive);
+    this.timeoutPolicy = timeout(timeoutMs, TimeoutStrategy.Aggressive);
   }
 
   async init(): Promise<void> {
@@ -22,7 +22,7 @@ export class TimeoutDriver implements Driver {
   async acquireConnection(): Promise<DatabaseConnection> {
     try {
       // Wrap the connection acquisition with timeout
-      const conn = await this.acquisitionTimeout.execute(() =>
+      const conn = await this.timeoutPolicy.execute(() =>
         this.driver.acquireConnection()
       );
       return new TimeoutConnection(conn, this.timeoutMs);
