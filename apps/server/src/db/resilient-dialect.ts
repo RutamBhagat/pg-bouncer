@@ -25,7 +25,7 @@ export class ResilientPostgresDialect implements Dialect {
     return new ResilientPostgresDriver(this.endpoints);
   }
 
-  createIntrospector(db: Kysely<any>): DatabaseIntrospector {
+  createIntrospector(db: Kysely<unknown>): DatabaseIntrospector {
     return new PostgresIntrospector(db);
   }
 

@@ -32,8 +32,12 @@ type DbErrorCode = (typeof DB_ERROR_CODES)[keyof typeof DB_ERROR_CODES];
 
 interface DbErrorLog {
   timestamp: string;
-  level: "warn" | "error";
-  event: "db_connection_error" | "db_pool_error" | "db_failover";
+  level: "warn" | "error" | "info";
+  event:
+    | "db_connection_error"
+    | "db_pool_error"
+    | "db_failover"
+    | "db_connection_success";
   error_code?: string;
   error_type: string;
   message: string;
@@ -43,7 +47,7 @@ interface DbErrorLog {
 }
 
 export function logDbError(error: Error, context: Partial<DbErrorLog>) {
-  const pgError = error as any;
+  const pgError = error as Error & { code?: string };
   const errorCode = pgError.code as DbErrorCode;
 
   const logData = {
@@ -60,6 +64,8 @@ export function logDbError(error: Error, context: Partial<DbErrorLog>) {
 
   if (level === "error") {
     logger.error(logData, message);
+  } else if (level === "info") {
+    logger.info(logData, message);
   } else {
     logger.warn(logData, message);
   }

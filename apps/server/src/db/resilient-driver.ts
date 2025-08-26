@@ -3,6 +3,7 @@ import {
   circuitBreaker,
   ExponentialBackoff,
   handleAll,
+  type IPolicy,
   retry,
   TimeoutStrategy,
   timeout,
@@ -15,7 +16,7 @@ import { ResilientConnection } from "./resilient-connection";
 
 export class ResilientPostgresDriver implements Driver {
   private poolManager: FailoverPoolManager;
-  private policy: any;
+  private policy: IPolicy;
 
   constructor(endpoints: Array<PgBouncerEndpoint>) {
     this.poolManager = new FailoverPoolManager(endpoints);

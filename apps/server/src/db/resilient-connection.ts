@@ -1,22 +1,24 @@
-import type { CompiledQuery, DatabaseConnection } from "kysely";
+import type { IPolicy } from "cockatiel";
+import type { CompiledQuery, DatabaseConnection, QueryResult } from "kysely";
 import type { FailoverPoolManager } from "./failover-pool";
 
 export class ResilientConnection implements DatabaseConnection {
   constructor(
     private poolManager: FailoverPoolManager,
-    private policy: any,
+    private policy: IPolicy,
   ) {}
 
-  async executeQuery<_R>(compiledQuery: CompiledQuery): Promise<any> {
+  async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
     return this.policy.execute(async () => {
-      const { client, key } = await this.poolManager.getConnection();
+      const { client } = await this.poolManager.getConnection();
 
       try {
         const parameters = Array.from(compiledQuery.parameters || []);
         const result = await client.query(compiledQuery.sql, parameters);
         return {
           rows: result.rows,
-          numAffectedRows: result.rowCount,
+          numAffectedRows:
+            result.rowCount !== null ? BigInt(result.rowCount) : undefined,
         };
       } finally {
         client.release();
@@ -24,16 +26,16 @@ export class ResilientConnection implements DatabaseConnection {
     });
   }
 
-  async *streamQuery<_R>(
+  async *streamQuery<R>(
     compiledQuery: CompiledQuery,
-  ): AsyncIterableIterator<any> {
-    const { client, key } = await this.poolManager.getConnection();
+  ): AsyncIterableIterator<R> {
+    const { client } = await this.poolManager.getConnection();
 
     try {
       const parameters = Array.from(compiledQuery.parameters || []);
       const result = await client.query(compiledQuery.sql, parameters);
       for (const row of result.rows) {
-        yield { ...row };
+        yield { ...row } as R;
       }
     } finally {
       client.release();

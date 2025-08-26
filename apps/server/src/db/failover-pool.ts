@@ -39,10 +39,10 @@ export class FailoverPoolManager {
 
       pool.on("connect", (client) => {
         logDbError(new Error("Connection established"), {
-          event: "db_connection_success" as any,
+          event: "db_connection_success",
           endpoint: key,
           pgbouncer_index: index,
-          level: "info" as any,
+          level: "info",
         });
 
         client.on("error", (error) => {
@@ -92,7 +92,10 @@ export class FailoverPoolManager {
 
       if (this.healthStatus.get(key)) {
         try {
-          const pool = this.pools.get(key)!;
+          const pool = this.pools.get(key);
+          if (!pool) {
+            throw new Error(`Pool not found for ${key}`);
+          }
           const client = await pool.connect();
           return { client, key };
         } catch (error) {
