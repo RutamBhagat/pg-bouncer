@@ -1,4 +1,4 @@
-import { olapDb, oltpDb, pgSql } from "@/db/client";
+import { olapDb, oltpDb } from "@/db/client";
 
 import { Hono } from "hono";
 import { sql } from "kysely";
@@ -40,9 +40,6 @@ health.get("/db", async (c) => {
         query_time_ms: queryTime,
         timestamp: new Date().toISOString(),
       },
-      pgbouncer_info: {
-        note: "Connection routed through PGBouncer connection pooler",
-      },
     });
   } catch (error) {
     return c.json(
@@ -63,8 +60,8 @@ health.get("/db-olap", async (c) => {
 
     // Test with a heavy analytical query using extended timeout
     const result = await olapDb.transaction().execute(async (trx) => {
-      // Set 2 minute timeout for OLAP queries
-      await pgSql`SET LOCAL statement_timeout = '2min'`;
+      // Set 3 minute timeout for OLAP queries
+      await sql`SET LOCAL statement_timeout = '3min'`.execute(trx);
 
       // Simulate heavy OLAP query - aggregate pg_stat_activity
       return await trx
@@ -95,6 +92,7 @@ health.get("/db-olap", async (c) => {
           sql<number>`(SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public')`.as(
             "table_count"
           ),
+          sql<number>`pg_sleep(150)`.as("sleep_result"),
         ])
         .executeTakeFirst();
     });

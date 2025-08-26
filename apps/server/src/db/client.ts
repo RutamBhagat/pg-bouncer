@@ -21,5 +21,4 @@ const olapDb = new Kysely<DB>({
   dialect: new TimeoutPostgresDialect(pgSql, 120000),
 });
 
-// Export sql instance for direct use when needed, useful for SET LOCAL statement_timeout within OLAP transactions
-export { pgSql, oltpDb, olapDb };
+export { oltpDb, olapDb };
