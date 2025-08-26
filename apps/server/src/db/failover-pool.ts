@@ -86,7 +86,7 @@ export class FailoverPoolManager {
       const key = `${endpoint.host}:${endpoint.port}`;
 
       const lastCheck = this.lastHealthCheck.get(key) || 0;
-      if (!this.healthStatus.get(key) && Date.now() - lastCheck > 30000) {
+      if (!this.healthStatus.get(key) && Date.now() - lastCheck > 6000) {
         this.healthStatus.set(key, true);
       }
 

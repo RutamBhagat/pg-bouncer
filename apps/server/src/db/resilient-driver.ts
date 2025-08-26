@@ -27,7 +27,7 @@ export class ResilientPostgresDriver implements Driver {
     });
 
     const circuitBreakerPolicy = circuitBreaker(handleAll, {
-      halfOpenAfter: 30000,
+      halfOpenAfter: 6000,
       breaker: new ConsecutiveBreaker(2),
     });
 
