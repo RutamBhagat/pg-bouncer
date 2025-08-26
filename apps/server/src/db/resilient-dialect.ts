@@ -11,7 +11,8 @@ import {
   PostgresIntrospector,
   PostgresQueryCompiler,
 } from "kysely";
-import type { PgBouncerEndpoint } from "./failover-pool";
+
+import type { PgBouncerEndpoint } from "./client";
 import { ResilientPostgresDriver } from "./resilient-driver";
 
 export class ResilientPostgresDialect implements Dialect {

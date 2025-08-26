@@ -1,10 +1,6 @@
+import type { PgBouncerEndpoint } from "./client";
 import { Pool } from "pg";
 import { logDbError } from "./error-handler";
-
-export interface PgBouncerEndpoint {
-  host: string;
-  port: number;
-}
 
 export class FailoverPoolManager {
   private pools: Map<string, Pool> = new Map();
