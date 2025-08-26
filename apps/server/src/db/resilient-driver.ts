@@ -11,10 +11,10 @@ import {
 import type { DatabaseConnection, Driver, TransactionSettings } from "kysely";
 
 import { CompiledQuery } from "kysely";
-import { FailoverPoolManager } from "./failover-pool";
+import { FailoverPoolManager } from "@/db/failover-pool";
 import type { IPolicy } from "cockatiel";
-import type { PgBouncerEndpoint } from "./client";
-import { ResilientConnection } from "./resilient-connection";
+import type { PgBouncerEndpoint } from "@/db/client";
+import { ResilientConnection } from "@/db/resilient-connection";
 
 export class ResilientPostgresDriver implements Driver {
   private poolManager: FailoverPoolManager;

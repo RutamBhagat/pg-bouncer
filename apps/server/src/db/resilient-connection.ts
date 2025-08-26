@@ -1,6 +1,7 @@
-import type { IPolicy } from "cockatiel";
 import type { CompiledQuery, DatabaseConnection, QueryResult } from "kysely";
-import type { FailoverPoolManager } from "./failover-pool";
+
+import type { FailoverPoolManager } from "@/db/failover-pool";
+import type { IPolicy } from "cockatiel";
 
 export class ResilientConnection implements DatabaseConnection {
   constructor(

@@ -1,6 +1,6 @@
-import type { DB } from "./types";
+import type { DB } from "@/db/types";
 import { Kysely } from "kysely";
-import { ResilientPostgresDialect } from "./resilient-dialect";
+import { ResilientPostgresDialect } from "@/db/resilient-dialect";
 
 export interface PgBouncerEndpoint {
   host: string;

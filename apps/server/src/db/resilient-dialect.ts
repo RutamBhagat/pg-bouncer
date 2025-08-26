@@ -12,8 +12,8 @@ import {
   PostgresQueryCompiler,
 } from "kysely";
 
-import type { PgBouncerEndpoint } from "./client";
-import { ResilientPostgresDriver } from "./resilient-driver";
+import type { PgBouncerEndpoint } from "@/db/client";
+import { ResilientPostgresDriver } from "@/db/resilient-driver";
 
 export class ResilientPostgresDialect implements Dialect {
   constructor(private endpoints: Array<PgBouncerEndpoint>) {}
