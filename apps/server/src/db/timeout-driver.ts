@@ -1,14 +1,11 @@
 import type { DatabaseConnection, Driver } from "kysely";
 import { TimeoutStrategy, timeout } from "cockatiel";
 
-import { TimeoutConnection } from "@/db/timeout-connection";
-
 export class TimeoutDriver implements Driver {
   private timeoutPolicy;
 
   constructor(private driver: Driver, private timeoutMs: number) {
-    // Add timeout for connection acquisition to prevent hanging when PgBouncers are down
-    this.timeoutPolicy = timeout(timeoutMs, TimeoutStrategy.Aggressive);
+    this.timeoutPolicy = timeout(30000, TimeoutStrategy.Aggressive);
   }
 
   async init(): Promise<void> {
@@ -21,15 +18,13 @@ export class TimeoutDriver implements Driver {
 
   async acquireConnection(): Promise<DatabaseConnection> {
     try {
-      // Wrap the connection acquisition with timeout
-      const conn = await this.timeoutPolicy.execute(() =>
+      return await this.timeoutPolicy.execute(() =>
         this.driver.acquireConnection()
       );
-      return new TimeoutConnection(conn, this.timeoutMs);
     } catch (error) {
       if (error instanceof Error && error.message.includes("timeout")) {
         throw new Error(
-          `Connection acquisition timeout after ${this.timeoutMs}ms - all PgBouncers may be unavailable`
+          "Connection acquisition timeout - all PgBouncers may be unavailable"
         );
       }
       throw error;
@@ -40,26 +35,18 @@ export class TimeoutDriver implements Driver {
     conn: DatabaseConnection,
     settings: any
   ): Promise<void> {
-    const actualConn = this.unwrapConnection(conn);
-    return this.driver.beginTransaction(actualConn, settings);
+    return this.driver.beginTransaction(conn, settings);
   }
 
   async commitTransaction(conn: DatabaseConnection): Promise<void> {
-    const actualConn = this.unwrapConnection(conn);
-    return this.driver.commitTransaction(actualConn);
+    return this.driver.commitTransaction(conn);
   }
 
   async rollbackTransaction(conn: DatabaseConnection): Promise<void> {
-    const actualConn = this.unwrapConnection(conn);
-    return this.driver.rollbackTransaction(actualConn);
+    return this.driver.rollbackTransaction(conn);
   }
 
   async releaseConnection(conn: DatabaseConnection): Promise<void> {
-    const actualConn = this.unwrapConnection(conn);
-    return this.driver.releaseConnection(actualConn);
-  }
-
-  private unwrapConnection(conn: DatabaseConnection): DatabaseConnection {
-    return conn instanceof TimeoutConnection ? (conn as any).connection : conn;
+    return this.driver.releaseConnection(conn);
   }
 }

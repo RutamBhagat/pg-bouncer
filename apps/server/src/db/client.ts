@@ -13,12 +13,6 @@ const pgSql = postgres(process.env.DATABASE_URL!, {
   },
 });
 
-const oltpDb = new Kysely<DB>({
+export const db = new Kysely<DB>({
   dialect: new TimeoutPostgresDialect(pgSql, 5000),
 });
-
-const olapDb = new Kysely<DB>({
-  dialect: new TimeoutPostgresDialect(pgSql, 120000),
-});
-
-export { oltpDb, olapDb };

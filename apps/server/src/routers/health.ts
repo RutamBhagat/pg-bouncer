@@ -1,6 +1,5 @@
-import { olapDb, oltpDb } from "@/db/client";
-
 import { Hono } from "hono";
+import { db } from "@/db/client";
 import { sql } from "kysely";
 
 const health = new Hono();
@@ -9,7 +8,7 @@ health.get("/db", async (c) => {
   try {
     const startTime = Date.now();
 
-    const result = await oltpDb
+    const result = await db
       .selectNoFrom((_eb) => [
         sql<string>`current_database()`.as("database_name"),
         sql<string>`current_user`.as("user_name"),
@@ -59,7 +58,7 @@ health.get("/db-olap", async (c) => {
     const startTime = Date.now();
 
     // Test with a heavy analytical query using extended timeout
-    const result = await olapDb.transaction().execute(async (trx) => {
+    const result = await db.transaction().execute(async (trx) => {
       // Set 3 minute timeout for OLAP queries
       await sql`SET LOCAL statement_timeout = '3min'`.execute(trx);
 
@@ -92,7 +91,7 @@ health.get("/db-olap", async (c) => {
           sql<number>`(SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public')`.as(
             "table_count"
           ),
-          sql<number>`pg_sleep(150)`.as("sleep_result"),
+          sql<number>`pg_sleep(120)`.as("sleep_result"),
         ])
         .executeTakeFirst();
     });
@@ -150,39 +149,6 @@ health.get("/db-olap", async (c) => {
       },
       500
     );
-  }
-});
-
-// Test endpoint to simulate a long-running query
-health.get("/db-slow", async (c) => {
-  const startTime = Date.now();
-  try {
-    // This should timeout after 2 minutes (OLAP timeout)
-    const result = await olapDb
-      .selectNoFrom(() => [
-        sql<number>`pg_sleep(150)`.as("sleep_result"), // Sleep for 150 seconds (2.5 minutes)
-      ])
-      .executeTakeFirst();
-
-    return c.json({
-      status: "completed",
-      message: "Slow query completed (should not happen if timeout works)",
-      time_ms: Date.now() - startTime,
-    });
-  } catch (error) {
-    const isTimeout =
-      error instanceof Error && error.message.includes("timeout");
-
-    return c.json(
-      {
-        status: isTimeout ? "timeout" : "error",
-        message: isTimeout ? "Query correctly timed out" : "Query failed",
-        error: error instanceof Error ? error.message : "Unknown error",
-        time_ms: Date.now() - startTime,
-        expected: "Should timeout after 2 minutes",
-      },
-      isTimeout ? 200 : 500
-    ); // Return 200 for expected timeout
   }
 });
 
