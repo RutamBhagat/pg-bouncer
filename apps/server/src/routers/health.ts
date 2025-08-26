@@ -1,12 +1,11 @@
 import { Hono } from "hono";
-import { getDb } from "../db/client";
+import { db } from "@/db/client";
 import { sql } from "kysely";
 
 const health = new Hono();
 
 health.get("/db", async (c) => {
   try {
-    const db = await getDb();
     const startTime = Date.now();
 
     const result = await db
