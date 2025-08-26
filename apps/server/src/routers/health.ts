@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { db } from "@/db/client";
 import { sql } from "kysely";
+import { db } from "@/db/client";
 
 const health = new Hono();
 
@@ -51,7 +51,7 @@ health.get("/db", async (c) => {
         error: error instanceof Error ? error.message : "Unknown error",
         timestamp: new Date().toISOString(),
       },
-      500
+      500,
     );
   }
 });

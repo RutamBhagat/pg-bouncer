@@ -1,5 +1,5 @@
-import { Pool } from 'pg';
-import { logDbError } from './error-handler';
+import { Pool } from "pg";
+import { logDbError } from "./error-handler";
 
 export interface PgBouncerEndpoint {
   host: string;
@@ -26,67 +26,70 @@ export class FailoverPoolManager {
         connectionTimeoutMillis: 5000,
         idleTimeoutMillis: 30000,
       });
-      
-      pool.on('error', (error) => {
+
+      pool.on("error", (error) => {
         logDbError(error, {
-          event: 'db_pool_error',
+          event: "db_pool_error",
           endpoint: key,
           pgbouncer_index: index,
-          level: 'warn'
+          level: "warn",
         });
         this.healthStatus.set(key, false);
       });
 
-      pool.on('connect', (client) => {
-        logDbError(new Error('Connection established'), {
-          event: 'db_connection_success' as any,
+      pool.on("connect", (client) => {
+        logDbError(new Error("Connection established"), {
+          event: "db_connection_success" as any,
           endpoint: key,
           pgbouncer_index: index,
-          level: 'info' as any
+          level: "info" as any,
         });
-        
-        client.on('error', (error) => {
+
+        client.on("error", (error) => {
           logDbError(error, {
-            event: 'db_connection_error',
+            event: "db_connection_error",
             endpoint: key,
             pgbouncer_index: index,
-            level: 'warn'
+            level: "warn",
           });
         });
       });
-      
+
       this.pools.set(key, pool);
       this.healthStatus.set(key, true);
       this.lastHealthCheck.set(key, Date.now());
     });
-    
-    this.healthCheckInterval = setInterval(() => this.performHealthChecks(), 5000);
+
+    this.healthCheckInterval = setInterval(
+      () => this.performHealthChecks(),
+      5000,
+    );
   }
-  
+
   private async performHealthChecks() {
     for (const [key, pool] of this.pools) {
       try {
-        await pool.query('SELECT 1');
+        await pool.query("SELECT 1");
         this.healthStatus.set(key, true);
-      } catch (error) {
+      } catch (_error) {
         this.healthStatus.set(key, false);
       }
       this.lastHealthCheck.set(key, Date.now());
     }
   }
-  
+
   async getConnection() {
     const attempts = this.endpoints.length;
-    
+
     for (let i = 0; i < attempts; i++) {
       const endpoint = this.endpoints[this.currentIndex];
       const key = `${endpoint.host}:${endpoint.port}`;
-      
+
       const lastCheck = this.lastHealthCheck.get(key) || 0;
       if (!this.healthStatus.get(key) && Date.now() - lastCheck > 30000) {
         this.healthStatus.set(key, true);
       }
-      
+
       if (this.healthStatus.get(key)) {
         try {
           const pool = this.pools.get(key)!;
@@ -97,18 +100,18 @@ export class FailoverPoolManager {
           console.error(`Failed to connect to ${key}:`, error);
         }
       }
-      
+
       this.currentIndex = (this.currentIndex + 1) % this.endpoints.length;
     }
-    
-    throw new Error('All PgBouncer instances are unavailable');
+
+    throw new Error("All PgBouncer instances are unavailable");
   }
 
   async destroy() {
     if (this.healthCheckInterval) {
       clearInterval(this.healthCheckInterval);
     }
-    
+
     for (const [, pool] of this.pools) {
       await pool.end();
     }

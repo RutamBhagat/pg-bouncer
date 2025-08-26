@@ -1,18 +1,18 @@
-import type { 
-  Dialect, 
-  Driver, 
-  QueryCompiler,
-  DialectAdapter,
+import type {
   DatabaseIntrospector,
-  Kysely
-} from 'kysely';
+  Dialect,
+  DialectAdapter,
+  Driver,
+  Kysely,
+  QueryCompiler,
+} from "kysely";
 import {
   PostgresAdapter,
   PostgresIntrospector,
-  PostgresQueryCompiler
-} from 'kysely';
-import { ResilientPostgresDriver } from './resilient-driver';
-import type { PgBouncerEndpoint } from './failover-pool';
+  PostgresQueryCompiler,
+} from "kysely";
+import type { PgBouncerEndpoint } from "./failover-pool";
+import { ResilientPostgresDriver } from "./resilient-driver";
 
 export class ResilientPostgresDialect implements Dialect {
   constructor(private endpoints: Array<PgBouncerEndpoint>) {}
