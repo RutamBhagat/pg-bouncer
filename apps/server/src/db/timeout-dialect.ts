@@ -14,7 +14,7 @@ import type postgres from "postgres";
 export class TimeoutPostgresDialect implements Dialect {
   private baseDialect: PostgresJSDialect;
 
-  constructor(sql: postgres.Sql<{}>, private timeoutMs: number = 10000) {
+  constructor(sql: postgres.Sql<{}>, private timeoutMs: number = 5000) {
     this.baseDialect = new PostgresJSDialect({ postgres: sql });
   }
 
@@ -34,3 +34,4 @@ export class TimeoutPostgresDialect implements Dialect {
     return this.baseDialect.createQueryCompiler();
   }
 }
+  
