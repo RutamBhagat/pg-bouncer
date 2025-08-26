@@ -1,68 +1,88 @@
 # pgbouncer-csf
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines Next.js, Hono, and more.
 
-## Features
+## Development Commands
 
-- **TypeScript** - For type safety and improved developer experience
-- **Next.js** - Full-stack React framework
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **shadcn/ui** - Reusable UI components
-- **Hono** - Lightweight, performant server framework
-- **Node.js** - Runtime environment
-- **Prisma** - TypeScript-first ORM
-- **PostgreSQL** - Database engine
-- **Authentication** - Email & password authentication with Better Auth
-- **Turborepo** - Optimized monorepo build system
-- **Biome** - Linting and formatting
-
-## Getting Started
-
-First, install the dependencies:
-
+### Core Development
 ```bash
-pnpm install
-```
-## Database Setup
-
-This project uses PostgreSQL with Prisma.
-
-1. Make sure you have a PostgreSQL database set up.
-2. Update your `apps/server/.env` file with your PostgreSQL connection details.
-
-3. Generate the Prisma client and push the schema:
-```bash
-pnpm db:push
-```
-
-
-Then, run the development server:
-
-```bash
+# Start all applications (web on port 3001, server on port 3000)
 pnpm dev
+
+# Start specific apps
+pnpm dev:web      # Frontend only
+pnpm dev:server   # Backend only
+
+# Build all applications
+pnpm build
+
+# Type checking across all apps
+pnpm check-types
+
+# Format and lint with Biome
+pnpm check
 ```
 
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
-The API is running at [http://localhost:3000](http://localhost:3000).
+### Database Management
+```bash
+# Push Prisma schema to database
+pnpm db:push
 
+# Generate Prisma client
+pnpm db:generate
 
+# Run migrations
+pnpm db:migrate
 
-## Project Structure
+# Open Prisma Studio UI
+pnpm db:studio
 
+# Docker database management
+pnpm db:start   # Start database containers
+pnpm db:stop    # Stop database containers
+pnpm db:watch   # Start and watch logs
+pnpm db:down    # Stop and remove containers
 ```
-pgbouncer-csf/
-├── apps/
-│   ├── web/         # Frontend application (Next.js)
-│   └── server/      # Backend API (Hono)
-```
 
-## Available Scripts
+## Architecture Overview
 
-- `pnpm dev`: Start all applications in development mode
-- `pnpm build`: Build all applications
-- `pnpm dev:web`: Start only the web application
-- `pnpm dev:server`: Start only the server
-- `pnpm check-types`: Check TypeScript types across all apps
-- `pnpm db:push`: Push schema changes to database
-- `pnpm db:studio`: Open database studio UI
-- `pnpm check`: Run Biome formatting and linting
+### Monorepo Structure
+This is a TypeScript monorepo managed by Turborepo with two main applications:
+- **apps/web**: Next.js frontend with authentication UI
+- **apps/server**: Hono API server with resilient database connections
+
+### Database Resilience System
+The server implements a sophisticated PgBouncer failover mechanism for high availability:
+
+1. **ResilientPostgresDialect** (`apps/server/src/db/resilient-dialect.ts`): Custom Kysely dialect that creates the resilient driver
+2. **ResilientPostgresDriver** (`apps/server/src/db/resilient-driver.ts`): Implements retry policies, circuit breakers, and timeouts using Cockatiel
+3. **FailoverPoolManager** (`apps/server/src/db/failover-pool.ts`): Manages multiple PgBouncer connections with health checks and automatic failover
+4. **ResilientConnection** (`apps/server/src/db/resilient-connection.ts`): Wraps database queries with resilience policies
+
+The system monitors multiple PgBouncer endpoints (configured via `PGBOUNCER_HOSTS` environment variable), performs health checks every 5 seconds, and automatically fails over to healthy instances when issues occur.
+
+### Authentication
+Uses Better Auth library with:
+- Email/password authentication
+- Session management via Prisma
+- Auth client configured in `apps/web/src/lib/auth-client.ts`
+- Server auth setup in `apps/server/src/lib/auth.ts`
+
+### Type Safety
+- Prisma generates TypeScript types from schema
+- Prisma-Kysely bridges Prisma types to Kysely query builder
+- Full end-to-end type safety from database to frontend
+
+## Key Configuration
+
+### Environment Variables
+Server requires these in `apps/server/.env`:
+- `DATABASE_NAME`, `DATABASE_USER`, `DATABASE_PASSWORD`: PostgreSQL credentials
+- `PGBOUNCER_HOSTS`: Comma-separated list of PgBouncer endpoints (e.g., "host1:6432,host2:6432")
+- `BETTER_AUTH_SECRET`: Authentication secret key
+- `BETTER_AUTH_URL`: Authentication base URL
+
+### Biome Settings
+- Double quotes for strings
+- 2-space indentation
+- Automatic import organization
+- Custom class sorting for Tailwind utilities (clsx, cva, cn functions)
