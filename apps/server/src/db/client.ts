@@ -7,15 +7,15 @@ export interface PgBouncerEndpoint {
   port: number;
 }
 
-const pgBouncerEndpoints: Array<PgBouncerEndpoint> = process.env.PGBOUNCER_HOSTS
-  ? process.env.PGBOUNCER_HOSTS.split(",").map((host) => {
-      const [hostname, port] = host.trim().split(":");
-      return {
-        host: hostname,
-        port: Number.parseInt(port, 10) || 6432,
-      };
-    })
-  : [{ host: "localhost", port: 6432 }];
+const pgBouncerEndpoints: Array<PgBouncerEndpoint> = process.env
+  .PGBOUNCER_HOSTS!.split(",")
+  .map((host) => {
+    const [hostname, port] = host.trim().split(":");
+    return {
+      host: hostname,
+      port: Number.parseInt(port, 10),
+    };
+  });
 
 export const db = new Kysely<DB>({
   dialect: new ResilientPostgresDialect(pgBouncerEndpoints),
