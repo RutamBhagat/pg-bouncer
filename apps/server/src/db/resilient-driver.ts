@@ -13,8 +13,8 @@ import { ResilientConnection } from "@/db/resilient-connection";
 
 const RESILIENT_DRIVER_CONFIG = {
   circuitBreaker: {
-    halfOpenAfter: 6000,
-    consecutiveFailures: 2,
+    halfOpenAfter: 4000,
+    consecutiveFailures: 3,
   },
 };
 
