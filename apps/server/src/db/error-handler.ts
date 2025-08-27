@@ -1,14 +1,30 @@
 import pino from "pino";
 
+const isDevelopment = process.env.NODE_ENV === "development";
+
 const logger = pino({
-  level: "info",
+  level: process.env.LOG_LEVEL || (isDevelopment ? "debug" : "info"),
   timestamp: pino.stdTimeFunctions.isoTime,
   formatters: {
-    level: (label) => {
-      return { level: label };
-    },
+    level: (label) => ({ level: label.toUpperCase() }),
   },
+  ...(isDevelopment && {
+    transport: {
+      target: "pino-pretty",
+      options: {
+        colorize: true,
+        translateTime: "SYS:standard",
+        ignore: "pid,hostname",
+      },
+    },
+  }),
 });
+
+export const createLogger = (component: string) => {
+  return logger.child({ component });
+};
+
+export const dbLogger = createLogger("database");
 
 // Common PostgreSQL error codes
 const DB_ERROR_CODES = {
@@ -63,11 +79,11 @@ export function logDbError(error: Error, context: Partial<DbErrorLog>) {
   const level = context.level || "warn";
 
   if (level === "error") {
-    logger.error(logData, message);
+    dbLogger.error(logData, message);
   } else if (level === "info") {
-    logger.info(logData, message);
+    dbLogger.info(logData, message);
   } else {
-    logger.warn(logData, message);
+    dbLogger.warn(logData, message);
   }
 }
 
@@ -113,7 +129,7 @@ function getErrorTypeFromMessage(message: string): string {
 
 function getErrorMessage(
   code: string | undefined,
-  originalMessage: string,
+  originalMessage: string
 ): string {
   if (!code) {
     return getSimplifiedMessage(originalMessage);
