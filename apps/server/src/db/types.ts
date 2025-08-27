@@ -1,19 +1,5 @@
 import type { ColumnType } from "kysely";
 
-export interface PgBouncerEndpoint {
-  host: string;
-  port: number;
-}
-
-export interface ResilienceConfig {
-  connectionTimeout: number;
-  queryTimeout: number;
-  healthCheckInterval: number;
-  recoveryTime: number;
-  maxRetries: number;
-  circuitBreakerThreshold: number;
-}
-
 export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S, I | undefined, U>
   : ColumnType<T, T | undefined, T>;

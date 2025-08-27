@@ -1,19 +1,18 @@
 import type { DB } from "@/db/types";
+import { FailoverPostgresDialect } from "@/db/drivers/failover-dialect";
 import { Kysely } from "kysely";
-import { TimeoutPostgresDialect } from "@/db/timeout-dialect";
-import postgres from "postgres";
 
-const pgSql = postgres(process.env.DATABASE_URL!, {
-  prepare: false,
-  max: 20,
-  idle_timeout: 30,
-  connect_timeout: 10,
-  transform: {
-    undefined: null,
-  },
-});
+export interface DatabaseEndpoint {
+  connectionString: string;
+}
+
+const databaseEndpoints: Array<DatabaseEndpoint> = process.env
+  .DATABASE_URL!.split(",")
+  .map((url) => ({
+    connectionString: url.trim(),
+  }));
 
 export const db = new Kysely<DB>({
-  dialect: new TimeoutPostgresDialect(pgSql, 5000),
+  dialect: new FailoverPostgresDialect(databaseEndpoints),
 });
 
