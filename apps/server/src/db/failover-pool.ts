@@ -1,6 +1,12 @@
 import type { DatabaseEndpoint } from "@/db/client";
 import { Pool } from "pg";
 import { logDbError } from "@/db/error-handler";
+import {
+  ConsecutiveBreaker,
+  circuitBreaker,
+  handleAll,
+} from "cockatiel";
+import type { IPolicy } from "cockatiel";
 
 const FAILOVER_POOL_CONFIG = {
   pool: {
@@ -12,10 +18,15 @@ const FAILOVER_POOL_CONFIG = {
     intervalMs: 5000,
     retryAfterMs: 6000,
   },
+  circuitBreaker: {
+    halfOpenAfter: 4000,
+    consecutiveFailures: 3,
+  },
 };
 
 export class FailoverPoolManager {
   private pools: Map<string, Pool> = new Map();
+  private circuitBreakers: Map<string, IPolicy> = new Map();
   private currentIndex = 0;
   private healthStatus: Map<string, boolean> = new Map();
   private lastHealthCheck: Map<string, number> = new Map();
@@ -24,6 +35,14 @@ export class FailoverPoolManager {
   constructor(private endpoints: Array<DatabaseEndpoint>) {
     endpoints.forEach((endpoint, index) => {
       const key = endpoint.connectionString;
+      
+      // Create circuit breaker for this endpoint
+      const breaker = circuitBreaker(handleAll, {
+        halfOpenAfter: FAILOVER_POOL_CONFIG.circuitBreaker.halfOpenAfter,
+        breaker: new ConsecutiveBreaker(FAILOVER_POOL_CONFIG.circuitBreaker.consecutiveFailures),
+      });
+      this.circuitBreakers.set(key, breaker);
+      
       const pool = new Pool({
         connectionString: endpoint.connectionString,
         max: FAILOVER_POOL_CONFIG.pool.max,
@@ -88,23 +107,36 @@ export class FailoverPoolManager {
     for (let i = 0; i < attempts; i++) {
       const endpoint = this.endpoints[this.currentIndex];
       const key = endpoint.connectionString;
+      const breaker = this.circuitBreakers.get(key);
 
       const lastCheck = this.lastHealthCheck.get(key) || 0;
       if (!this.healthStatus.get(key) && Date.now() - lastCheck > FAILOVER_POOL_CONFIG.healthCheck.retryAfterMs) {
         this.healthStatus.set(key, true);
       }
 
-      if (this.healthStatus.get(key)) {
+      if (this.healthStatus.get(key) && breaker) {
         try {
           const pool = this.pools.get(key);
           if (!pool) {
             throw new Error(`Pool not found for ${key}`);
           }
-          const client = await pool.connect();
+          
+          // Wrap the connection attempt in this endpoint's circuit breaker
+          const client = await breaker.execute(async () => {
+            return await pool.connect();
+          });
+          
           return { client, key };
         } catch (error) {
-          this.healthStatus.set(key, false);
-          console.error(`Failed to connect to ${key}:`, error);
+          // If circuit breaker is open, it will throw immediately
+          // Otherwise, it's a real connection failure
+          if (error.message?.includes("Circuit breaker is open")) {
+            // Circuit breaker is open for this endpoint, try next one
+            console.log(`Circuit breaker open for ${key}, trying next endpoint`);
+          } else {
+            this.healthStatus.set(key, false);
+            console.error(`Failed to connect to ${key}:`, error);
+          }
         }
       }
 
