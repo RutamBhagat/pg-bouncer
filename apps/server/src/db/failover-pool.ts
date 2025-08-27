@@ -1,12 +1,14 @@
-import type { IPolicy } from "cockatiel";
 import {
   BrokenCircuitError,
   ConsecutiveBreaker,
   circuitBreaker,
   handleAll,
 } from "cockatiel";
-import { Pool, type PoolClient } from "pg";
+
 import type { DatabaseEndpoint } from "@/db/client";
+import type { IPolicy } from "cockatiel";
+import { Pool } from "pg";
+import type { PoolClient } from "pg";
 import { logDbError } from "@/db/error-handler";
 
 const FAILOVER_POOL_CONFIG = {
@@ -46,7 +48,7 @@ export class FailoverPoolManager {
       const breaker = circuitBreaker(handleAll, {
         halfOpenAfter: FAILOVER_POOL_CONFIG.circuitBreaker.halfOpenAfter,
         breaker: new ConsecutiveBreaker(
-          FAILOVER_POOL_CONFIG.circuitBreaker.consecutiveFailures,
+          FAILOVER_POOL_CONFIG.circuitBreaker.consecutiveFailures
         ),
       });
       this.circuitBreakers.set(key, breaker);
@@ -94,7 +96,7 @@ export class FailoverPoolManager {
 
     this.healthCheckInterval = setInterval(
       () => this.performHealthChecks(),
-      FAILOVER_POOL_CONFIG.healthCheck.intervalMs,
+      FAILOVER_POOL_CONFIG.healthCheck.intervalMs
     );
   }
 
