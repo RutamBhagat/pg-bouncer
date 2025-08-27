@@ -15,7 +15,7 @@ import {
 import type { DatabaseEndpoint } from "@/db/client";
 import { ResilientPostgresDriver } from "@/db/drivers/resilient-driver";
 
-export class ResilientPostgresDialect implements Dialect {
+export class FailoverPostgresDialect implements Dialect {
   constructor(private endpoints: Array<DatabaseEndpoint>) {}
 
   createAdapter(): DialectAdapter {
