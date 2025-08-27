@@ -2,8 +2,8 @@ import type { DatabaseConnection, Driver, TransactionSettings } from "kysely";
 
 import { CompiledQuery } from "kysely";
 import type { DatabaseEndpoint } from "@/db/client";
-import { FailoverPoolManager } from "@/db/failover-pool";
-import { ResilientConnection } from "@/db/resilient-connection";
+import { FailoverPoolManager } from "@/db/drivers/failover-pool";
+import { ResilientConnection } from "@/db/drivers/resilient-connection";
 
 export class ResilientPostgresDriver implements Driver {
   private poolManager: FailoverPoolManager;

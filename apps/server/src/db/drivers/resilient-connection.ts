@@ -1,6 +1,6 @@
 import type { CompiledQuery, DatabaseConnection, QueryResult } from "kysely";
 
-import type { FailoverPoolManager } from "@/db/failover-pool";
+import type { FailoverPoolManager } from "@/db/drivers/failover-pool";
 
 export class ResilientConnection implements DatabaseConnection {
   constructor(private poolManager: FailoverPoolManager) {}

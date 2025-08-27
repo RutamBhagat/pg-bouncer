@@ -13,7 +13,7 @@ import {
 } from "kysely";
 
 import type { DatabaseEndpoint } from "@/db/client";
-import { ResilientPostgresDriver } from "@/db/resilient-driver";
+import { ResilientPostgresDriver } from "@/db/drivers/resilient-driver";
 
 export class ResilientPostgresDialect implements Dialect {
   constructor(private endpoints: Array<DatabaseEndpoint>) {}
