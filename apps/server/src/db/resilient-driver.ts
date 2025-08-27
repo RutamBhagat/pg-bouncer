@@ -13,14 +13,14 @@ import type { DatabaseConnection, Driver, TransactionSettings } from "kysely";
 import { CompiledQuery } from "kysely";
 import { FailoverPoolManager } from "@/db/failover-pool";
 import type { IPolicy } from "cockatiel";
-import type { PgBouncerEndpoint } from "@/db/client";
+import type { DatabaseEndpoint } from "@/db/client";
 import { ResilientConnection } from "@/db/resilient-connection";
 
 export class ResilientPostgresDriver implements Driver {
   private poolManager: FailoverPoolManager;
   private policy: IPolicy;
 
-  constructor(endpoints: Array<PgBouncerEndpoint>) {
+  constructor(endpoints: Array<DatabaseEndpoint>) {
     this.poolManager = new FailoverPoolManager(endpoints);
 
     const retryPolicy = retry(handleAll, {

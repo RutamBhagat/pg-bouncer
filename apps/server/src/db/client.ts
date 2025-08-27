@@ -2,21 +2,14 @@ import type { DB } from "@/db/types";
 import { Kysely } from "kysely";
 import { ResilientPostgresDialect } from "@/db/resilient-dialect";
 
-export interface PgBouncerEndpoint {
-  host: string;
-  port: number;
+export interface DatabaseEndpoint {
+  connectionString: string;
 }
 
-const pgBouncerEndpoints: Array<PgBouncerEndpoint> = process.env
-  .PGBOUNCER_HOSTS!.split(",")
-  .map((host) => {
-    const [hostname, port] = host.trim().split(":");
-    return {
-      host: hostname,
-      port: Number.parseInt(port, 10),
-    };
-  });
+const databaseEndpoints: Array<DatabaseEndpoint> = process.env
+  .DATABASE_URL!.split(",")
+  .map((url) => ({ connectionString: url.trim() }));
 
 export const db = new Kysely<DB>({
-  dialect: new ResilientPostgresDialect(pgBouncerEndpoints),
+  dialect: new ResilientPostgresDialect(databaseEndpoints),
 });

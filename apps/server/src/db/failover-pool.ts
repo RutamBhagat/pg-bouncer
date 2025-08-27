@@ -1,4 +1,4 @@
-import type { PgBouncerEndpoint } from "@/db/client";
+import type { DatabaseEndpoint } from "@/db/client";
 import { Pool } from "pg";
 import { logDbError } from "@/db/error-handler";
 
@@ -9,15 +9,11 @@ export class FailoverPoolManager {
   private lastHealthCheck: Map<string, number> = new Map();
   private healthCheckInterval?: NodeJS.Timeout;
 
-  constructor(private endpoints: Array<PgBouncerEndpoint>) {
+  constructor(private endpoints: Array<DatabaseEndpoint>) {
     endpoints.forEach((endpoint, index) => {
-      const key = `${endpoint.host}:${endpoint.port}`;
+      const key = endpoint.connectionString;
       const pool = new Pool({
-        host: endpoint.host,
-        port: endpoint.port,
-        database: process.env.DATABASE_NAME,
-        user: process.env.DATABASE_USER,
-        password: process.env.DATABASE_PASSWORD,
+        connectionString: endpoint.connectionString,
         max: 10,
         connectionTimeoutMillis: 5000,
         idleTimeoutMillis: 30000,
@@ -79,7 +75,7 @@ export class FailoverPoolManager {
 
     for (let i = 0; i < attempts; i++) {
       const endpoint = this.endpoints[this.currentIndex];
-      const key = `${endpoint.host}:${endpoint.port}`;
+      const key = endpoint.connectionString;
 
       const lastCheck = this.lastHealthCheck.get(key) || 0;
       if (!this.healthStatus.get(key) && Date.now() - lastCheck > 6000) {

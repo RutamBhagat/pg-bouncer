@@ -12,11 +12,11 @@ import {
   PostgresQueryCompiler,
 } from "kysely";
 
-import type { PgBouncerEndpoint } from "@/db/client";
+import type { DatabaseEndpoint } from "@/db/client";
 import { ResilientPostgresDriver } from "@/db/resilient-driver";
 
 export class ResilientPostgresDialect implements Dialect {
-  constructor(private endpoints: Array<PgBouncerEndpoint>) {}
+  constructor(private endpoints: Array<DatabaseEndpoint>) {}
 
   createAdapter(): DialectAdapter {
     return new PostgresAdapter();
