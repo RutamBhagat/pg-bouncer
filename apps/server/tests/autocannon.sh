@@ -2,8 +2,13 @@
 # failover-test.sh
 
 # Start continuous load
-autocannon -c 10000 -d 55 http://localhost:3000/api/health/db &
+# Realistic
+autocannon -c 200 -d 55 http://localhost:3000/api/health/db &
+# Peak stress test
+# autocannon -c 10000 -d 55 http://localhost:3000/api/health/db &
 LOAD_PID=$!
+
+docker start pgb1 pgb2 pgb3
 
 sleep 10
 
@@ -36,42 +41,41 @@ sleep 10
 echo "Starting PgBouncer 3..."
 docker start pgb3
 
-kill $LOAD_PID
 
 # Example output
+# ➜  pgbouncer-csf git:(feat/simple-circuit-breaker) ✗ ./apps/server/tests/autocannon.sh
+# pgb1
+# pgb2
+# pgb3
 # Running 55s test @ http://localhost:3000/api/health/db
-# 10000 connections
+# 200 connections
 
 # running [===                 ] 16%Killing PgBouncer 1...
-# pgb1
-# running [=======             ] 34%Killing PgBouncer 2...
+# running [====                ] 18%pgb1
+# running [=======             ] 36%Killing PgBouncer 2...
 # pgb2
-# running [===========         ] 52%Killing PgBouncer 3...
-# running [===========         ] 54%pgb3
+# running [===========         ] 54%Killing PgBouncer 3...
+# pgb3
 # running [=============       ] 63%Starting PgBouncer 1...
 # pgb1
 # running [================    ] 81%Starting PgBouncer 2...
 # pgb2
 
-# ┌─────────┬───────┬────────┬─────────┬─────────┬────────────┬────────────┬──────────┐
-# │ Stat    │ 2.5%  │ 50%    │ 97.5%   │ 99%     │ Avg        │ Stdev      │ Max      │
-# ├─────────┼───────┼────────┼─────────┼─────────┼────────────┼────────────┼──────────┤
-# │ Latency │ 92 ms │ 780 ms │ 5548 ms │ 8849 ms │ 1147.91 ms │ 1322.87 ms │ 15719 ms │
-# └─────────┴───────┴────────┴─────────┴─────────┴────────────┴────────────┴──────────┘
-# ┌───────────┬─────────┬────────┬────────┬─────────┬───────────┬──────────┬─────────┐
-# │ Stat      │ 1%      │ 2.5%   │ 50%    │ 97.5%   │ Avg       │ Stdev    │ Min     │
-# ├───────────┼─────────┼────────┼────────┼─────────┼───────────┼──────────┼─────────┤
-# │ Req/Sec   │ 3,493   │ 3,519  │ 12,687 │ 18,303  │ 12,297.82 │ 2,870.48 │ 3,493   │
-# ├───────────┼─────────┼────────┼────────┼─────────┼───────────┼──────────┼─────────┤
-# │ Bytes/Sec │ 2.04 MB │ 2.4 MB │ 8.4 MB │ 9.32 MB │ 7.6 MB    │ 1.71 MB  │ 2.04 MB │
-# └───────────┴─────────┴────────┴────────┴─────────┴───────────┴──────────┴─────────┘
+# ┌─────────┬──────┬──────┬───────┬───────┬─────────┬─────────┬────────┐
+# │ Stat    │ 2.5% │ 50%  │ 97.5% │ 99%   │ Avg     │ Stdev   │ Max    │
+# ├─────────┼──────┼──────┼───────┼───────┼─────────┼─────────┼────────┤
+# │ Latency │ 8 ms │ 9 ms │ 13 ms │ 18 ms │ 9.34 ms │ 4.68 ms │ 414 ms │
+# └─────────┴──────┴──────┴───────┴───────┴─────────┴─────────┴────────┘
+# ┌───────────┬─────────┬─────────┬─────────┬─────────┬──────────┬─────────┬─────────┐
+# │ Stat      │ 1%      │ 2.5%    │ 50%     │ 97.5%   │ Avg      │ Stdev   │ Min     │
+# ├───────────┼─────────┼─────────┼─────────┼─────────┼──────────┼─────────┼─────────┤
+# │ Req/Sec   │ 10,343  │ 15,207  │ 20,655  │ 22,319  │ 20,263.2 │ 1,850.5 │ 10,341  │
+# ├───────────┼─────────┼─────────┼─────────┼─────────┼──────────┼─────────┼─────────┤
+# │ Bytes/Sec │ 5.77 MB │ 7.08 MB │ 14.1 MB │ 14.9 MB │ 13.2 MB  │ 2.2 MB  │ 5.76 MB │
+# └───────────┴─────────┴─────────┴─────────┴─────────┴──────────┴─────────┴─────────┘
 
 # Req/Bytes counts sampled once per second.
 # # of samples: 55
 
-# 526813 2xx responses, 149532 non 2xx responses
-# 716k requests in 55.37s, 418 MB read
-# 20k errors (10k timeouts)
-# Starting PgBouncer 3...
-# pgb3
-# ./apps/server/tests/autocannon.sh: line 39: kill: (246709) - No such process
+# 987344 2xx responses, 127099 non 2xx responses
+# 1115k requests in 55.02s, 724 MB read
