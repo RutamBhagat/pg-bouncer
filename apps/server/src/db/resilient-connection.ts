@@ -3,9 +3,7 @@ import type { CompiledQuery, DatabaseConnection, QueryResult } from "kysely";
 import type { FailoverPoolManager } from "@/db/failover-pool";
 
 export class ResilientConnection implements DatabaseConnection {
-  constructor(
-    private poolManager: FailoverPoolManager,
-  ) {}
+  constructor(private poolManager: FailoverPoolManager) {}
 
   async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
     const { client } = await this.poolManager.getConnection();

@@ -20,7 +20,7 @@ export class ResilientPostgresDriver implements Driver {
 
   async beginTransaction(
     connection: DatabaseConnection,
-    _settings: TransactionSettings
+    _settings: TransactionSettings,
   ): Promise<void> {
     await connection.executeQuery(CompiledQuery.raw("BEGIN"));
   }
