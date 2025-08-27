@@ -11,10 +11,26 @@ import {
 import type { DatabaseConnection, Driver, TransactionSettings } from "kysely";
 
 import { CompiledQuery } from "kysely";
+import type { DatabaseEndpoint } from "@/db/client";
 import { FailoverPoolManager } from "@/db/failover-pool";
 import type { IPolicy } from "cockatiel";
-import type { DatabaseEndpoint } from "@/db/client";
 import { ResilientConnection } from "@/db/resilient-connection";
+
+const RESILIENT_DRIVER_CONFIG = {
+  retry: {
+    maxAttempts: 3,
+    initialDelay: 100,
+    maxDelay: 5000,
+  },
+  circuitBreaker: {
+    halfOpenAfter: 6000,
+    consecutiveFailures: 2,
+  },
+  timeout: {
+    duration: 30000,
+    strategy: TimeoutStrategy.Cooperative,
+  },
+};
 
 export class ResilientPostgresDriver implements Driver {
   private poolManager: FailoverPoolManager;
@@ -24,16 +40,19 @@ export class ResilientPostgresDriver implements Driver {
     this.poolManager = new FailoverPoolManager(endpoints);
 
     const retryPolicy = retry(handleAll, {
-      maxAttempts: 3,
-      backoff: new ExponentialBackoff({ initialDelay: 100, maxDelay: 5000 }),
+      maxAttempts: RESILIENT_DRIVER_CONFIG.retry.maxAttempts,
+      backoff: new ExponentialBackoff({ 
+        initialDelay: RESILIENT_DRIVER_CONFIG.retry.initialDelay, 
+        maxDelay: RESILIENT_DRIVER_CONFIG.retry.maxDelay 
+      }),
     });
 
     const circuitBreakerPolicy = circuitBreaker(handleAll, {
-      halfOpenAfter: 6000,
-      breaker: new ConsecutiveBreaker(2),
+      halfOpenAfter: RESILIENT_DRIVER_CONFIG.circuitBreaker.halfOpenAfter,
+      breaker: new ConsecutiveBreaker(RESILIENT_DRIVER_CONFIG.circuitBreaker.consecutiveFailures),
     });
 
-    const timeoutPolicy = timeout(30000, TimeoutStrategy.Cooperative);
+    const timeoutPolicy = timeout(RESILIENT_DRIVER_CONFIG.timeout.duration, RESILIENT_DRIVER_CONFIG.timeout.strategy);
 
     this.policy = wrap(retryPolicy, circuitBreakerPolicy, timeoutPolicy);
   }

@@ -2,6 +2,18 @@ import type { DatabaseEndpoint } from "@/db/client";
 import { Pool } from "pg";
 import { logDbError } from "@/db/error-handler";
 
+const FAILOVER_POOL_CONFIG = {
+  pool: {
+    max: 10,
+    connectionTimeoutMillis: 5000,
+    idleTimeoutMillis: 30000,
+  },
+  healthCheck: {
+    intervalMs: 5000,
+    retryAfterMs: 6000,
+  },
+};
+
 export class FailoverPoolManager {
   private pools: Map<string, Pool> = new Map();
   private currentIndex = 0;
@@ -14,9 +26,9 @@ export class FailoverPoolManager {
       const key = endpoint.connectionString;
       const pool = new Pool({
         connectionString: endpoint.connectionString,
-        max: 10,
-        connectionTimeoutMillis: 5000,
-        idleTimeoutMillis: 30000,
+        max: FAILOVER_POOL_CONFIG.pool.max,
+        connectionTimeoutMillis: FAILOVER_POOL_CONFIG.pool.connectionTimeoutMillis,
+        idleTimeoutMillis: FAILOVER_POOL_CONFIG.pool.idleTimeoutMillis,
       });
 
       pool.on("error", (error) => {
@@ -54,7 +66,7 @@ export class FailoverPoolManager {
 
     this.healthCheckInterval = setInterval(
       () => this.performHealthChecks(),
-      5000,
+      FAILOVER_POOL_CONFIG.healthCheck.intervalMs,
     );
   }
 
@@ -78,7 +90,7 @@ export class FailoverPoolManager {
       const key = endpoint.connectionString;
 
       const lastCheck = this.lastHealthCheck.get(key) || 0;
-      if (!this.healthStatus.get(key) && Date.now() - lastCheck > 6000) {
+      if (!this.healthStatus.get(key) && Date.now() - lastCheck > FAILOVER_POOL_CONFIG.healthCheck.retryAfterMs) {
         this.healthStatus.set(key, true);
       }
 
