@@ -2,25 +2,25 @@ import type { DatabaseConnection, Driver, TransactionSettings } from "kysely";
 
 import { CompiledQuery } from "kysely";
 import type { DatabaseEndpoint } from "@/db/client";
-import { FailoverPoolManager } from "@/db/drivers/failover-pool";
-import { ResilientConnection } from "@/db/drivers/resilient-connection";
+import { FailoverConnectionManager } from "@/db/drivers/failover-connection-manager";
+import { ManagedConnection } from "@/db/drivers/managed-connection";
 
-export class ResilientPostgresDriver implements Driver {
-  private poolManager: FailoverPoolManager;
+export class FailoverPostgresDriver implements Driver {
+  private poolManager: FailoverConnectionManager;
 
   constructor(endpoints: Array<DatabaseEndpoint>) {
-    this.poolManager = new FailoverPoolManager(endpoints);
+    this.poolManager = new FailoverConnectionManager(endpoints);
   }
 
   async init(): Promise<void> {}
 
   async acquireConnection(): Promise<DatabaseConnection> {
-    return new ResilientConnection(this.poolManager);
+    return new ManagedConnection(this.poolManager);
   }
 
   async beginTransaction(
     connection: DatabaseConnection,
-    _settings: TransactionSettings,
+    _settings: TransactionSettings
   ): Promise<void> {
     await connection.executeQuery(CompiledQuery.raw("BEGIN"));
   }

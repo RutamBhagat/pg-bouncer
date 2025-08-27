@@ -13,7 +13,7 @@ import {
 } from "kysely";
 
 import type { DatabaseEndpoint } from "@/db/client";
-import { ResilientPostgresDriver } from "@/db/drivers/resilient-driver";
+import { FailoverPostgresDriver } from "@/db/drivers/failover-driver";
 
 export class FailoverPostgresDialect implements Dialect {
   constructor(private endpoints: Array<DatabaseEndpoint>) {}
@@ -23,7 +23,7 @@ export class FailoverPostgresDialect implements Dialect {
   }
 
   createDriver(): Driver {
-    return new ResilientPostgresDriver(this.endpoints);
+    return new FailoverPostgresDriver(this.endpoints);
   }
 
   createIntrospector(db: Kysely<unknown>): DatabaseIntrospector {
