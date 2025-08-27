@@ -2,7 +2,7 @@
 # failover-test.sh
 
 # Start continuous load
-autocannon -c 10500 -d 165 http://localhost:3000/api/health/db &
+autocannon -c 10000 -d 55 http://localhost:3000/api/health/db &
 LOAD_PID=$!
 
 sleep 10

@@ -130,7 +130,8 @@ export class FailoverPoolManager {
         } catch (error) {
           // If circuit breaker is open, it will throw immediately
           // Otherwise, it's a real connection failure
-          if (error.message?.includes("Circuit breaker is open")) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          if (errorMessage.includes("Circuit breaker is open")) {
             // Circuit breaker is open for this endpoint, try next one
             console.log(`Circuit breaker open for ${key}, trying next endpoint`);
           } else {
