@@ -11,7 +11,7 @@ import { Pool } from "pg";
 import type { PoolClient } from "pg";
 import { logDbError } from "@/db/error-handler";
 
-const FAILOVER_POOL_CONFIG = {
+const FAILOVER_CONNECTION_CONFIG = {
   pool: {
     max: 33,
     connectionTimeoutMillis: 5000,
@@ -32,7 +32,7 @@ export interface ConnectionResult {
   key: string;
 }
 
-export class FailoverPoolManager {
+export class FailoverConnectionManager {
   private readonly pools: Map<string, Pool> = new Map();
   private readonly circuitBreakers: Map<string, IPolicy> = new Map();
   private currentIndex = 0;
@@ -46,19 +46,19 @@ export class FailoverPoolManager {
 
       // Create circuit breaker for this endpoint
       const breaker = circuitBreaker(handleAll, {
-        halfOpenAfter: FAILOVER_POOL_CONFIG.circuitBreaker.halfOpenAfter,
+        halfOpenAfter: FAILOVER_CONNECTION_CONFIG.circuitBreaker.halfOpenAfter,
         breaker: new ConsecutiveBreaker(
-          FAILOVER_POOL_CONFIG.circuitBreaker.consecutiveFailures
+          FAILOVER_CONNECTION_CONFIG.circuitBreaker.consecutiveFailures
         ),
       });
       this.circuitBreakers.set(key, breaker);
 
       const pool = new Pool({
         connectionString: endpoint.connectionString,
-        max: FAILOVER_POOL_CONFIG.pool.max,
+        max: FAILOVER_CONNECTION_CONFIG.pool.max,
         connectionTimeoutMillis:
-          FAILOVER_POOL_CONFIG.pool.connectionTimeoutMillis,
-        idleTimeoutMillis: FAILOVER_POOL_CONFIG.pool.idleTimeoutMillis,
+          FAILOVER_CONNECTION_CONFIG.pool.connectionTimeoutMillis,
+        idleTimeoutMillis: FAILOVER_CONNECTION_CONFIG.pool.idleTimeoutMillis,
       });
 
       pool.on("error", (error) => {
@@ -96,7 +96,7 @@ export class FailoverPoolManager {
 
     this.healthCheckInterval = setInterval(
       () => this.performHealthChecks(),
-      FAILOVER_POOL_CONFIG.healthCheck.intervalMs
+      FAILOVER_CONNECTION_CONFIG.healthCheck.intervalMs
     );
   }
 
@@ -120,7 +120,9 @@ export class FailoverPoolManager {
 
     const lastCheck = this.lastHealthCheck.get(key) || 0;
     const timeSinceLastCheck = Date.now() - lastCheck;
-    return timeSinceLastCheck > FAILOVER_POOL_CONFIG.healthCheck.retryAfterMs;
+    return (
+      timeSinceLastCheck > FAILOVER_CONNECTION_CONFIG.healthCheck.retryAfterMs
+    );
   }
 
   async getConnection(): Promise<ConnectionResult> {
