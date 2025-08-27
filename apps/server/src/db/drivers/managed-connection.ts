@@ -1,9 +1,9 @@
 import type { CompiledQuery, DatabaseConnection, QueryResult } from "kysely";
 
-import type { FailoverPoolManager } from "@/db/drivers/failover-pool";
+import type { FailoverConnectionManager } from "@/db/drivers/failover-connection-manager";
 
-export class ResilientConnection implements DatabaseConnection {
-  constructor(private poolManager: FailoverPoolManager) {}
+export class ManagedConnection implements DatabaseConnection {
+  constructor(private poolManager: FailoverConnectionManager) {}
 
   async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
     const { client } = await this.poolManager.getConnection();
@@ -22,7 +22,7 @@ export class ResilientConnection implements DatabaseConnection {
   }
 
   async *streamQuery<R>(
-    compiledQuery: CompiledQuery,
+    compiledQuery: CompiledQuery
   ): AsyncIterableIterator<R> {
     const { client } = await this.poolManager.getConnection();
 
