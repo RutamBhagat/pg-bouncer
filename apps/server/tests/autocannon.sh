@@ -23,10 +23,11 @@ docker kill pgb2
 
 sleep 10
 
-echo "Killing PgBouncer 3..."
-docker kill pgb3
+# Remove this to test total outage
+# echo "Killing PgBouncer 3..."
+# docker kill pgb3
 
-sleep 5
+# sleep 5
 
 echo "Starting PgBouncer 1..."
 docker start pgb1
@@ -38,44 +39,27 @@ docker start pgb2
 
 sleep 10
 
-echo "Starting PgBouncer 3..."
-docker start pgb3
+# Remove this to test total outage
+# echo "Starting PgBouncer 3..."
+# docker start pgb3
 
 
 # Example output
-# ➜  pgbouncer-csf git:(feat/simple-circuit-breaker) ✗ ./apps/server/tests/autocannon.sh
-# pgb1
-# pgb2
-# pgb3
-# Running 55s test @ http://localhost:3000/api/health/db
-# 200 connections
-
-# running [===                 ] 16%Killing PgBouncer 1...
-# running [====                ] 18%pgb1
-# running [=======             ] 36%Killing PgBouncer 2...
-# pgb2
-# running [===========         ] 54%Killing PgBouncer 3...
-# pgb3
-# running [=============       ] 63%Starting PgBouncer 1...
-# pgb1
-# running [================    ] 81%Starting PgBouncer 2...
-# pgb2
-
-# ┌─────────┬──────┬──────┬───────┬───────┬─────────┬─────────┬────────┐
-# │ Stat    │ 2.5% │ 50%  │ 97.5% │ 99%   │ Avg     │ Stdev   │ Max    │
-# ├─────────┼──────┼──────┼───────┼───────┼─────────┼─────────┼────────┤
-# │ Latency │ 8 ms │ 9 ms │ 13 ms │ 18 ms │ 9.34 ms │ 4.68 ms │ 414 ms │
-# └─────────┴──────┴──────┴───────┴───────┴─────────┴─────────┴────────┘
-# ┌───────────┬─────────┬─────────┬─────────┬─────────┬──────────┬─────────┬─────────┐
-# │ Stat      │ 1%      │ 2.5%    │ 50%     │ 97.5%   │ Avg      │ Stdev   │ Min     │
-# ├───────────┼─────────┼─────────┼─────────┼─────────┼──────────┼─────────┼─────────┤
-# │ Req/Sec   │ 10,343  │ 15,207  │ 20,655  │ 22,319  │ 20,263.2 │ 1,850.5 │ 10,341  │
-# ├───────────┼─────────┼─────────┼─────────┼─────────┼──────────┼─────────┼─────────┤
-# │ Bytes/Sec │ 5.77 MB │ 7.08 MB │ 14.1 MB │ 14.9 MB │ 13.2 MB  │ 2.2 MB  │ 5.76 MB │
-# └───────────┴─────────┴─────────┴─────────┴─────────┴──────────┴─────────┴─────────┘
+# ┌─────────┬──────┬───────┬───────┬───────┬──────────┬─────────┬────────┐
+# │ Stat    │ 2.5% │ 50%   │ 97.5% │ 99%   │ Avg      │ Stdev   │ Max    │
+# ├─────────┼──────┼───────┼───────┼───────┼──────────┼─────────┼────────┤
+# │ Latency │ 9 ms │ 10 ms │ 14 ms │ 16 ms │ 10.33 ms │ 4.49 ms │ 249 ms │
+# └─────────┴──────┴───────┴───────┴───────┴──────────┴─────────┴────────┘
+# ┌───────────┬─────────┬─────────┬─────────┬─────────┬──────────┬──────────┬─────────┐
+# │ Stat      │ 1%      │ 2.5%    │ 50%     │ 97.5%   │ Avg      │ Stdev    │ Min     │
+# ├───────────┼─────────┼─────────┼─────────┼─────────┼──────────┼──────────┼─────────┤
+# │ Req/Sec   │ 12,735  │ 14,895  │ 18,543  │ 19,759  │ 18,401.9 │ 1,203.41 │ 12,731  │
+# ├───────────┼─────────┼─────────┼─────────┼─────────┼──────────┼──────────┼─────────┤
+# │ Bytes/Sec │ 7.67 MB │ 8.97 MB │ 11.2 MB │ 11.9 MB │ 11.1 MB  │ 725 kB   │ 7.67 MB │
+# └───────────┴─────────┴─────────┴─────────┴─────────┴──────────┴──────────┴─────────┘
 
 # Req/Bytes counts sampled once per second.
 # # of samples: 55
 
-# 987344 2xx responses, 127099 non 2xx responses
-# 1115k requests in 55.02s, 724 MB read
+# 1012121 2xx responses, 33 non 2xx responses
+# 1012k requests in 55.02s, 609 MB read
