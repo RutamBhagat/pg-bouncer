@@ -37,7 +37,7 @@ sleep 10
 echo "Starting PgBouncer 2..."
 docker start pgb2
 
-sleep 10
+# sleep 10
 
 # Remove this to test total outage
 # echo "Starting PgBouncer 3..."
