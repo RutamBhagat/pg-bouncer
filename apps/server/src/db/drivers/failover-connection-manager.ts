@@ -11,18 +11,23 @@ import { Pool } from "pg";
 import type { PoolClient } from "pg";
 import { logDbError } from "@/db/error-handler";
 
+// AWS Lambda automatically sets AWS_LAMBDA_FUNCTION_NAME
+const isStatelessEnvironment = !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+
 const FAILOVER_CONNECTION_CONFIG = {
+  isStateless: isStatelessEnvironment,
   pool: {
     max: 33,
     connectionTimeoutMillis: 5000,
     idleTimeoutMillis: 30000,
   },
   healthCheck: {
+    enabled: !isStatelessEnvironment, // Disable health checks in Lambda
     intervalMs: 5000,
     retryAfterMs: 6000,
   },
   circuitBreaker: {
-    halfOpenAfter: 4000,
+    halfOpenAfter: isStatelessEnvironment ? 2000 : 4000, // Faster recovery in Lambda
     consecutiveFailures: 3,
   },
 };
@@ -68,7 +73,10 @@ export class FailoverConnectionManager {
           pgbouncer_index: index,
           level: "warn",
         });
-        this.healthStatus.set(key, false);
+        // Only track health status in stateful environments
+        if (!isStatelessEnvironment) {
+          this.healthStatus.set(key, false);
+        }
       });
 
       pool.on("connect", (client) => {
@@ -90,17 +98,32 @@ export class FailoverConnectionManager {
       });
 
       this.pools.set(key, pool);
-      this.healthStatus.set(key, true);
-      this.lastHealthCheck.set(key, Date.now());
+
+      // Only track health status in stateful environments
+      if (!isStatelessEnvironment) {
+        this.healthStatus.set(key, true);
+        this.lastHealthCheck.set(key, Date.now());
+      }
     });
 
-    this.healthCheckInterval = setInterval(
-      () => this.performHealthChecks(),
-      FAILOVER_CONNECTION_CONFIG.healthCheck.intervalMs
-    );
+    // Only start health checks in stateful environments
+    if (
+      FAILOVER_CONNECTION_CONFIG.healthCheck.enabled &&
+      !isStatelessEnvironment
+    ) {
+      this.healthCheckInterval = setInterval(
+        () => this.performHealthChecks(),
+        FAILOVER_CONNECTION_CONFIG.healthCheck.intervalMs
+      );
+    }
   }
 
   private async performHealthChecks() {
+    // Skip health checks in stateless environments
+    if (isStatelessEnvironment) {
+      return;
+    }
+
     const checks = Array.from(this.pools.entries()).map(async ([key, pool]) => {
       try {
         await pool.query("SELECT 1");
@@ -115,6 +138,12 @@ export class FailoverConnectionManager {
   }
 
   private shouldRetryEndpoint(key: string): boolean {
+    // In stateless environments, always retry (let circuit breaker handle failures)
+    if (isStatelessEnvironment) {
+      return true;
+    }
+
+    // In stateful environments, use health status tracking
     const isHealthy = this.healthStatus.get(key);
     if (isHealthy) return true;
 
@@ -145,7 +174,8 @@ export class FailoverConnectionManager {
       }
 
       // If endpoint was marked unhealthy but enough time has passed, try it again
-      if (!this.healthStatus.get(key)) {
+      // (Only in stateful environments)
+      if (!isStatelessEnvironment && !this.healthStatus.get(key)) {
         this.healthStatus.set(key, true);
       }
 
@@ -159,7 +189,10 @@ export class FailoverConnectionManager {
         if (error instanceof BrokenCircuitError) {
           console.log(`Circuit breaker open for ${key}, trying next endpoint`);
         } else {
-          this.healthStatus.set(key, false);
+          // Only track health status in stateful environments
+          if (!isStatelessEnvironment) {
+            this.healthStatus.set(key, false);
+          }
           console.error(`Failed to connect to ${key}:`, error);
         }
       }
